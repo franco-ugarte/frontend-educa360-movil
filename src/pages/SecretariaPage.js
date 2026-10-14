@@ -13,6 +13,7 @@ import EmptyState from '../components/ui/EmptyState';
 import { styles } from '../styles/Alumno.styles';
 import { useAuth } from '../state/AuthContext';
 import { displayName, initialsOf } from '../api/mappers';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import {
   crearEstudiante, crearApoderado, listarEstudiantes, listarApoderados,
   vincularRepresentado, desvincularRepresentado, crearMatricula, cambiarEstadoMatricula,
@@ -36,7 +37,7 @@ export default function SecretariaPage() {
   const [apoderados, setApoderados] = useState(null);
   const [secciones, setSecciones] = useState(null); // null = sin intentar; [] = sin permiso/vacío
   const [q, setQ] = useState('');
-  const [qDeb, setQDeb] = useState('');
+  const qDeb = useDebouncedValue(q.trim(), 400);
   const [estadoFiltro, setEstadoFiltro] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [cargandoListas, setCargandoListas] = useState(true);
@@ -75,11 +76,7 @@ export default function SecretariaPage() {
     }
   };
 
-  useEffect(() => {
-    const t = setTimeout(() => setQDeb(q.trim()), 400);
-    return () => clearTimeout(t);
-  }, [q]);
-
+  // useEffect: recarga con búsqueda + estado (el hook evita spamear el API).
   useEffect(() => {
     let vivo = true;
     (async () => {

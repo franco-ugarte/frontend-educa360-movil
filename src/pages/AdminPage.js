@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StatusBar, RefreshControl } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, FlatList, StatusBar, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import GradientButtonGroup from '../components/ui/GradientButtonGroup';
 import LoadingView from '../components/ui/LoadingView';
@@ -8,6 +8,7 @@ import { styles } from '../styles/Alumno.styles';
 import { useAuth } from '../state/AuthContext';
 import { displayName, initialsOf } from '../api/mappers';
 import { listarUsuarios } from '../api/admin';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { listarPeriodos, listarMaterias, listarSecciones, listarCursos, listarDocentes } from '../api/catalogo';
 import UserFormModal from '../components/admin/UserFormModal';
 import UserDetailModal from '../components/admin/UserDetailModal';
@@ -23,7 +24,7 @@ export default function AdminPage() {
   const { user, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('usuarios');
   const [q, setQ] = useState('');
-  const [qDeb, setQDeb] = useState('');
+  const qDeb = useDebouncedValue(q.trim(), 400);
   const [rolFiltro, setRolFiltro] = useState(null);
   const [activoFiltro, setActivoFiltro] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -45,12 +46,6 @@ export default function AdminPage() {
     { id: 'catalogo', label: 'Catálogo', icon: 'grid', iconOutline: 'grid-outline' },
     { id: 'perfil', label: 'Perfil', icon: 'person', iconOutline: 'person-outline' },
   ];
-
-  // useEffect: debounce de 400ms para buscar en el servidor sin spamear.
-  useEffect(() => {
-    const t = setTimeout(() => setQDeb(q.trim()), 400);
-    return () => clearTimeout(t);
-  }, [q]);
 
   // useEffect: carga panel ADMIN al montar, tras mutaciones y al filtrar.
   useEffect(() => {
@@ -96,27 +91,33 @@ export default function AdminPage() {
 
   const nombre = displayName(user);
 
+  const encabezado = (
+    <View style={styles.topBanner}>
+      <View style={styles.greetingRow}>
+        <View>
+          <Text style={styles.greetingText}>Hola, {nombre.split(' ')[0]}!</Text>
+          <Text style={styles.bannerSubtitle}>Dirección · panel global</Text>
+        </View>
+        <View style={styles.bellIconButton}>
+          <Ionicons name="shield-checkmark-outline" size={20} color="#FFFFFF" />
+        </View>
+      </View>
+    </View>
+  );
+
+  const refresco = (
+    <RefreshControl refreshing={refreshing} colors={['#5F348F']} onRefresh={() => { setRefreshing(true); recargar(); }} />
+  );
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} colors={['#5F348F']} onRefresh={() => { setRefreshing(true); recargar(); }} />
-        }
+        refreshControl={refresco}
       >
-        <View style={styles.topBanner}>
-          <View style={styles.greetingRow}>
-            <View>
-              <Text style={styles.greetingText}>Hola, {nombre.split(' ')[0]}!</Text>
-              <Text style={styles.bannerSubtitle}>Dirección · panel global</Text>
-            </View>
-            <View style={styles.bellIconButton}>
-              <Ionicons name="shield-checkmark-outline" size={20} color="#FFFFFF" />
-            </View>
-          </View>
-        </View>
+        {encabezado}
 
         {loading ? (
           <LoadingView message="Cargando panel ADMIN..." />
@@ -182,24 +183,36 @@ export default function AdminPage() {
               ))}
             </View>
             <Text style={[styles.sectionSubtitle, { marginBottom: 6 }]}>Toca una ficha para editar, dar de baja o resetear clave.</Text>
-            {filtrados.slice(0, 30).map((u) => (
-              <TouchableOpacity key={u.id} onPress={() => setDetailUser(u)} activeOpacity={0.85}>
-                <View style={styles.courseCardPro}>
-                  <View style={styles.courseTopRow}>
-                    <View style={[styles.courseIconBox, { backgroundColor: u.activo ? '#F3E8FF' : '#F1F5F9' }]}>
-                      <Text style={{ color: u.activo ? '#5F348F' : '#94A3B8', fontWeight: '800' }}>{initialsOf(`${u.nombres} ${u.apellidos}`)}</Text>
-                    </View>
-                    <View style={styles.courseMainInfo}>
-                      <Text style={styles.courseTitle}>{u.nombres} {u.apellidos}{u.activo ? '' : ' (inactivo)'}</Text>
-                      <Text style={styles.courseTeacherName}>{u.email} · DNI {u.dni}</Text>
-                    </View>
-                    <View style={styles.courseTag}>
-                      <Text style={styles.courseTagText}>{u.rol}</Text>
+            {/* FlatList: lista virtualizada de fichas (rúbrica UI). */}
+            <FlatList
+              data={filtrados}
+              keyExtractor={(u) => String(u.id)}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+              ListEmptyComponent={
+                <Text style={[styles.sectionSubtitle, { textAlign: 'center', marginTop: 12 }]}>
+                  Sin usuarios para este filtro.
+                </Text>
+              }
+              renderItem={({ item: u }) => (
+                <TouchableOpacity onPress={() => setDetailUser(u)} activeOpacity={0.85}>
+                  <View style={styles.courseCardPro}>
+                    <View style={styles.courseTopRow}>
+                      <View style={[styles.courseIconBox, { backgroundColor: u.activo ? '#F3E8FF' : '#F1F5F9' }]}>
+                        <Text style={{ color: u.activo ? '#5F348F' : '#94A3B8', fontWeight: '800' }}>{initialsOf(`${u.nombres} ${u.apellidos}`)}</Text>
+                      </View>
+                      <View style={styles.courseMainInfo}>
+                        <Text style={styles.courseTitle}>{u.nombres} {u.apellidos}{u.activo ? '' : ' (inactivo)'}</Text>
+                        <Text style={styles.courseTeacherName}>{u.email} · DNI {u.dni}</Text>
+                      </View>
+                      <View style={styles.courseTag}>
+                        <Text style={styles.courseTagText}>{u.rol}</Text>
+                      </View>
                     </View>
                   </View>
-                </View>
-              </TouchableOpacity>
-            ))}
+                </TouchableOpacity>
+              )}
+            />
             <UserFormModal
               visible={!!formModal}
               editUser={formModal?.mode === 'editar' ? formModal.user : null}
