@@ -14,8 +14,19 @@ import { styles } from '../styles/Alumno.styles';
 // Importación corregida de los datos relacionales
 import { relacionesFamilia } from '../data/relaciones';
 import { alumnos } from '../data/alumnos';
+import { useAuth } from '../state/AuthContext';
+import { displayName } from '../api/mappers';
 
-export default function PadrePage({ usuario = {}, setPage = () => {} }) {
+export default function PadrePage() {
+  const { user: backendUser, signOut } = useAuth();
+  const setPage = () => {};
+  const usuario = {
+    personaId: backendUser?.id,
+    id: backendUser?.id,
+    nombre: displayName(backendUser),
+    email: backendUser?.email,
+    ...backendUser,
+  };
   const [activeTab, setActiveTab] = useState('inicio');
 
   // Validación segura para evitar que falle si personaId o id no están definidos
@@ -122,7 +133,7 @@ export default function PadrePage({ usuario = {}, setPage = () => {} }) {
             <TouchableOpacity
               style={styles.logoutProButton}
               activeOpacity={0.8}
-              onPress={() => setPage('login')}
+              onPress={signOut}
             >
               <Ionicons name="log-out-outline" size={18} color="#EF4444" />
               <Text style={styles.logoutProText}>Cerrar Sesión</Text>
@@ -141,13 +152,4 @@ export default function PadrePage({ usuario = {}, setPage = () => {} }) {
   );
 }
 
-PadrePage.propTypes = {
-  usuario: PropTypes.shape({
-    id: PropTypes.number,
-    email: PropTypes.string,
-    rol: PropTypes.string,
-    personaId: PropTypes.number,
-    nombre: PropTypes.string,
-  }),
-  setPage: PropTypes.func.isRequired,
-};
+PadrePage.propTypes = {};

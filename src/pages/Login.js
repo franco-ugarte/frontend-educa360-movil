@@ -10,35 +10,38 @@ import {
   Image,
   Alert,
 } from 'react-native';
-import PropTypes from 'prop-types';
 import CosmicButton from '../components/ui/CosmicButton';
+import ErrorCard from '../components/ui/ErrorCard';
 import { styles } from '../styles/Login.styles';
-import { usuarios } from '../data/usuarios';
+import { useAuth } from '../state/AuthContext';
 
-export default function Login({ onLogin = () => {} }) {
+export default function Login() {
+  const { signIn } = useAuth();
   const [usuario, setUsuario] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [isUserFocused, setIsUserFocused] = useState(false);
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
 
-  // Validación individual estricta por campo
+  // Validación individual estricta por campo (dominio + mínimo backend 8).
   const validateField = (field, value) => {
     let errorMsg = null;
 
     if (field === 'usuario') {
       if (!value.trim()) {
         errorMsg = 'El correo institucional es obligatorio.';
-      } else if (!value.trim().endsWith('@educa360.com') && !value.trim().endsWith('@educa360.pe')) {
-        errorMsg = 'El correo debe pertenecer al dominio @educa360.com';
+      } else if (!value.trim().endsWith('@educa360.pe') && !value.trim().endsWith('@educa360.com')) {
+        errorMsg = 'El correo debe pertenecer al dominio @educa360.pe';
       }
     }
 
     if (field === 'password') {
       if (!value) {
         errorMsg = 'Falta ingresar la contraseña.';
-      } else if (value.length < 4) {
-        errorMsg = 'La contraseña debe tener al menos 4 caracteres.';
+      } else if (value.length < 8) {
+        errorMsg = 'La contraseña debe tener al menos 8 caracteres.';
       }
     }
 
@@ -46,31 +49,27 @@ export default function Login({ onLogin = () => {} }) {
     return errorMsg;
   };
 
-  const handleLogin = () => {
+  // useState + backend real: POST /api/v1/auth/login, sesión en AsyncStorage.
+  const handleLogin = async () => {
     const userError = validateField('usuario', usuario);
     const passError = validateField('password', password);
+    if (userError || passError) return;
 
-    if (userError || passError) {
-      return;
-    }
-
-    const inputClean = usuario.trim().toLowerCase();
-    const passClean = password.trim();
-
-    const usuarioEncontrado = usuarios.find(
-      (u) =>
-        u.email.trim().toLowerCase() === inputClean &&
-        u.password.trim() === passClean
-    );
-
-    if (usuarioEncontrado) {
-      setErrors({});
-      onLogin(usuarioEncontrado);
-    } else {
-      Alert.alert(
-        'Acceso Denegado',
-        'El correo o la contraseña ingresados son incorrectos. Verifica tus datos e intenta nuevamente.'
-      );
+    setLoading(true);
+    setSubmitError(null);
+    try {
+      await signIn(usuario, password);
+    } catch (e) {
+      if (e.status === 401) {
+        setSubmitError(e);
+      } else if (e.status === 429) {
+        Alert.alert('Bloqueado', `Demasiados intentos. Reintenta en ${e.retryAfter || '?'}s.`);
+        setSubmitError(e);
+      } else {
+        setSubmitError(e);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -101,9 +100,9 @@ export default function Login({ onLogin = () => {} }) {
             style={[
               styles.input,
               isUserFocused && styles.inputFocused,
-              errors.usuario && styles.inputError, // Cambia el borde a rojo si hay error en estilos
+              errors.usuario && styles.inputError,
             ]}
-            placeholder="ej. nombre@educa360.com"
+            placeholder="ej. nombre@educa360.pe"
             placeholderTextColor="#94A3B8"
             value={usuario}
             onChangeText={(text) => {
@@ -128,7 +127,7 @@ export default function Login({ onLogin = () => {} }) {
             style={[
               styles.input,
               isPasswordFocused && styles.inputFocused,
-              errors.password && styles.inputError, // Cambia el borde a rojo si hay error en estilos
+              errors.password && styles.inputError,
             ]}
             placeholder="••••••••••••"
             placeholderTextColor="#94A3B8"
@@ -148,9 +147,12 @@ export default function Login({ onLogin = () => {} }) {
             <Text style={styles.errorText}>{errors.password}</Text>
           )}
 
+          {submitError ? <ErrorCard error={submitError} /> : null}
+
           <CosmicButton
             title="Ingresar a la Plataforma"
             onPress={handleLogin}
+            loading={loading}
           />
 
           <TouchableOpacity
@@ -169,7 +171,3 @@ export default function Login({ onLogin = () => {} }) {
     </KeyboardAvoidingView>
   );
 }
-
-Login.propTypes = {
-  onLogin: PropTypes.func.isRequired,
-};

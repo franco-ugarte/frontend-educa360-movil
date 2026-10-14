@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, View, Text } from 'react-native';
+import { TouchableOpacity, View, Text, ActivityIndicator } from 'react-native';
 import PropTypes from 'prop-types';
 import { LinearGradient } from 'expo-linear-gradient';
 import { styles } from './CosmicButton.styles';
@@ -8,12 +8,16 @@ export default function CosmicButton({
   onPress,
   title = 'Continuar',
   gradientColors = ['#A855F7', '#F59E0B'], // Violeta eléctrico a Ámbar cálido
+  loading = false,
+  disabled = false,
 }) {
+  const inactive = loading || disabled;
   return (
     <TouchableOpacity
       activeOpacity={0.82}
-      onPress={onPress}
-      style={styles.container}
+      onPress={inactive ? undefined : onPress}
+      disabled={inactive}
+      style={[styles.container, inactive && { opacity: 0.6 }]}
     >
       <LinearGradient
         colors={gradientColors}
@@ -22,7 +26,11 @@ export default function CosmicButton({
         style={styles.gradientBorder}
       >
         <View style={styles.innerCore}>
-          <Text style={styles.titleText}>{title}</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={styles.titleText}>{title}</Text>
+          )}
         </View>
       </LinearGradient>
     </TouchableOpacity>
@@ -31,4 +39,7 @@ export default function CosmicButton({
 CosmicButton.propTypes = {
   title: PropTypes.string.isRequired,
   onPress: PropTypes.func.isRequired,
+  gradientColors: PropTypes.array,
+  loading: PropTypes.bool,
+  disabled: PropTypes.bool,
 };

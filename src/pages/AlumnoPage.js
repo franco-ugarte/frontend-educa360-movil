@@ -14,8 +14,20 @@ import { styles } from '../styles/Alumno.styles';
 import { alumnos } from '../data/alumnos';
 import { cursos } from '../data/cursos';
 import { profesores } from '../data/profesores';
+import { useAuth } from '../state/AuthContext';
+import { displayName } from '../api/mappers';
 
-export default function AlumnoPage({ usuario, setPage }) {
+export default function AlumnoPage() {
+  const { user: backendUser, signOut } = useAuth();
+  // Adaptador backend -> vista: el backend entrega {nombres,apellidos,email,rol};
+  // los cursos/notas aún son vista local (módulos pendientes en backend).
+  const usuario = {
+    personaId: 101,
+    nombre: displayName(backendUser),
+    email: backendUser?.email,
+    ...backendUser,
+  };
+  const setPage = () => {};
   // Pestañas: 'inicio' | 'cursos' | 'notas' | 'perfil'
   const [activeTab, setActiveTab] = useState('inicio');
 
@@ -337,7 +349,7 @@ export default function AlumnoPage({ usuario, setPage }) {
             <TouchableOpacity
               style={styles.logoutProButton}
               activeOpacity={0.8}
-              onPress={() => setPage('login')}
+              onPress={signOut}
             >
               <Ionicons name="log-out-outline" size={18} color="#EF4444" />
               <Text style={styles.logoutProText}>Cerrar Sesión</Text>
@@ -356,13 +368,4 @@ export default function AlumnoPage({ usuario, setPage }) {
   );
 }
 
-AlumnoPage.propTypes = {
-  usuario: PropTypes.shape({
-    id: PropTypes.number.isRequired,
-    email: PropTypes.string.isRequired,
-    rol: PropTypes.string.isRequired,
-    personaId: PropTypes.number.isRequired,
-    nombre: PropTypes.string.isRequired,
-  }).isRequired,
-  setPage: PropTypes.func.isRequired,
-};
+AlumnoPage.propTypes = {};
