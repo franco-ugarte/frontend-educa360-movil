@@ -1,0 +1,41 @@
+export const alumnos = [
+  {
+    id: 101,
+    nombre: 'Juan Pérez',
+    grado: '4to de Secundaria',
+    seccion: 'B',
+    asistencia: '84%',
+    promedio: 18.8,
+    estadoPreventivo: 'seguimiento',
+    alertas: [
+      { id: 1, tipo: 'academica', curso: 'Matemáticas', motivo: 'Bajo rendimiento en el último examen parcial' },
+      { id: 2, tipo: 'asistencia', motivo: '3 tardanzas consecutivas en la semana' },
+    ],
+    tutorId: 201,
+  },
+  {
+    id: 102,
+    nombre: 'Ana Gómez',
+    grado: '4to de Secundaria',
+    seccion: 'B',
+    asistencia: '96%',
+    promedio: 17.5,
+    estadoPreventivo: 'normal',
+    alertas: [],
+    tutorId: 201,
+  },
+  {
+    id: 103,
+    nombre: 'Mateo Quispe',
+    grado: '4to de Secundaria',
+    seccion: 'B',
+    asistencia: '72%',
+    promedio: 10.2,
+    estadoPreventivo: 'riesgo',
+    alertas: [
+      { id: 3, tipo: 'inasistencia', motivo: 'Límite de inasistencias injustificadas alcanzado' },
+      { id: 4, tipo: 'conductual', motivo: 'Anotación por incumplimiento reiterado de tareas' },
+    ],
+    tutorId: 201,
+  },
+];
