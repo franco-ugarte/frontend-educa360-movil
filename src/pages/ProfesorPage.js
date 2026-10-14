@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StatusBar, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import GradientButtonGroup from '../components/ui/GradientButtonGroup';
 import LoadingView from '../components/ui/LoadingView';
@@ -19,6 +19,7 @@ export default function ProfesorPage() {
   const [cursos, setCursos] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const tabs = [
     { id: 'inicio', label: 'Inicio', icon: 'home', iconOutline: 'home-outline' },
@@ -27,21 +28,22 @@ export default function ProfesorPage() {
   ];
 
   // useEffect: SUS cursos del backend (GET /docente/cursos, zona DOCENTE).
+  const recargar = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setCursos((await misCursos()) || []);
+    } catch (e) {
+      setError(e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
-    let vivo = true;
-    (async () => {
-      try {
-        const lista = await misCursos();
-        if (vivo) setCursos(lista || []);
-      } catch (e) {
-        if (vivo) setError(e);
-      } finally {
-        if (vivo) setLoading(false);
-      }
-    })();
-    return () => {
-      vivo = false;
-    };
+    recargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const nombre = displayName(user);
@@ -49,7 +51,13 @@ export default function ProfesorPage() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} colors={['#5F348F']} onRefresh={() => { setRefreshing(true); recargar(); }} />
+        }
+      >
         <View style={styles.topBanner}>
           <View style={styles.greetingRow}>
             <View>
@@ -155,7 +163,7 @@ export default function ProfesorPage() {
             <View style={styles.infoListCard}>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabelText}>Correo</Text>
-                <Text style={styles.infoValueText}>{user?.email}</Text>
+                <Text style={[styles.infoValueText, { fontSize: 11.5 }]}>{user?.email}</Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabelText}>Título</Text>

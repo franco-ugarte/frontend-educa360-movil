@@ -8,7 +8,7 @@ import LoadingView from '../ui/LoadingView';
 import ErrorCard from '../ui/ErrorCard';
 import EmptyState from '../ui/EmptyState';
 import { styles } from '../../styles/Alumno.styles';
-import { crearCurso, eliminarCurso } from '../../api/catalogo';
+import { crearCurso, eliminarCurso, listarHorario } from '../../api/catalogo';
 import HorarioModal from './HorarioModal';
 
 // Cursos: docente × materia × sección. Único por (materia, sección);
@@ -16,6 +16,9 @@ import HorarioModal from './HorarioModal';
 export default function CursoSection({ cursos, docentes, materias, secciones, onChanged }) {
   const [modal, setModal] = useState(false);
   const [horarioDe, setHorarioDe] = useState(null);
+  const [expandido, setExpandido] = useState(null); // id del curso con horario visible
+  const [bloques, setBloques] = useState([]);
+  const [cargandoBloques, setCargandoBloques] = useState(false);
   const [form, setForm] = useState({ docenteId: null, materiaId: null, seccionId: null });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -36,6 +39,22 @@ export default function CursoSection({ cursos, docentes, materias, secciones, on
       setError(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleHorario = async (curso) => {
+    if (expandido === curso.id) {
+      setExpandido(null);
+      return;
+    }
+    setExpandido(curso.id);
+    setCargandoBloques(true);
+    try {
+      setBloques((await listarHorario(curso.id)) || []);
+    } catch {
+      setBloques([]);
+    } finally {
+      setCargandoBloques(false);
     }
   };
 
@@ -77,13 +96,31 @@ export default function CursoSection({ cursos, docentes, materias, secciones, on
             </View>
           </View>
           <View style={{ flexDirection: 'row', gap: 14 }}>
+            <TouchableOpacity onPress={() => toggleHorario(c)}>
+              <Text style={own.link}>{expandido === c.id ? 'Ocultar horario' : 'Ver horario'}</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => setHorarioDe(c)}>
-              <Text style={own.link}>Horario</Text>
+              <Text style={own.link}>Editar</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => borrar(c)}>
               <Text style={[own.link, { color: '#DC2626' }]}>Eliminar</Text>
             </TouchableOpacity>
           </View>
+          {expandido === c.id ? (
+            <View style={{ marginTop: 8, backgroundColor: '#F8FAFC', borderRadius: 10, padding: 10 }}>
+              {cargandoBloques ? (
+                <LoadingView message="Cargando bloques…" />
+              ) : bloques.length > 0 ? (
+                bloques.map((b) => (
+                  <Text key={b.id} style={styles.courseMetaText}>
+                    • {b.dia} {String(b.horaInicio).slice(0, 5)}–{String(b.horaFin).slice(0, 5)}
+                  </Text>
+                ))
+              ) : (
+                <Text style={styles.courseMetaText}>Sin bloques semanales.</Text>
+              )}
+            </View>
+          ) : null}
         </View>
       ))}
       {cursos.length === 0 ? (

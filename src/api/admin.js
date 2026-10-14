@@ -10,6 +10,9 @@ export const listarUsuarios = (params = {}) => {
   return apiFetch(`/admin/usuarios${qs}`);
 };
 
+// Detalle fresco de una cuenta (para abrir la ficha siempre actualizada).
+export const detalleUsuario = (id) => apiFetch(`/admin/usuarios/${id}`);
+
 export const crearAdmin = (usuario) =>
   apiFetch('/admin/usuarios', { method: 'POST', body: usuario });
 

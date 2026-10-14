@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StatusBar, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StatusBar, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PropTypes from 'prop-types';
 import GradientButtonGroup from '../components/ui/GradientButtonGroup';
@@ -36,6 +36,9 @@ export default function SecretariaPage() {
   const [apoderados, setApoderados] = useState(null);
   const [secciones, setSecciones] = useState(null); // null = sin intentar; [] = sin permiso/vacío
   const [q, setQ] = useState('');
+  const [qDeb, setQDeb] = useState('');
+  const [estadoFiltro, setEstadoFiltro] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [cargandoListas, setCargandoListas] = useState(true);
 
   const [matDe, setMatDe] = useState(null); // EstudianteResponse a matricular
@@ -55,11 +58,11 @@ export default function SecretariaPage() {
   ];
 
   // useEffect: listas de la zona (alumnos, familias; secciones solo si el rol puede).
-  const recargarListas = async () => {
+  const recargarListas = async (qb = qDeb, eb = estadoFiltro) => {
     setCargandoListas(true);
     try {
       const [a, f, s] = await Promise.all([
-        listarEstudiantes({}).catch(() => []),
+        listarEstudiantes({ ...(qb ? { q: qb } : {}), ...(eb ? { estado: eb } : {}) }).catch(() => []),
         listarApoderados().catch(() => []),
         listarSecciones().catch(() => []),
       ]);
@@ -68,8 +71,14 @@ export default function SecretariaPage() {
       setSecciones(s || []);
     } finally {
       setCargandoListas(false);
+      setRefreshing(false);
     }
   };
+
+  useEffect(() => {
+    const t = setTimeout(() => setQDeb(q.trim()), 400);
+    return () => clearTimeout(t);
+  }, [q]);
 
   useEffect(() => {
     let vivo = true;
@@ -79,7 +88,8 @@ export default function SecretariaPage() {
     return () => {
       vivo = false;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qDeb, estadoFiltro]);
 
   const set = (k, v) => {
     setForm((p) => ({ ...p, [k]: v }));
@@ -222,15 +232,18 @@ export default function SecretariaPage() {
     styles.infoValueText,
     { borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingVertical: 6, textAlign: 'left', opacity: 0.65 },
   ];
-  const filtrados = (alumnos || []).filter((a) => {
-    if (!q.trim()) return true;
-    return `${a.email} ${a.nombres} ${a.apellidos} ${a.dni}`.toLowerCase().includes(q.trim().toLowerCase());
-  });
+  const filtrados = alumnos || [];
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} colors={['#5F348F']} onRefresh={() => { setRefreshing(true); recargarListas(); }} />
+        }
+      >
         <View style={styles.topBanner}>
           <View style={styles.greetingRow}>
             <View>
@@ -343,7 +356,25 @@ export default function SecretariaPage() {
                 onChangeText={setQ}
                 style={{ paddingVertical: 6 }}
                 autoCapitalize="none"
+                returnKeyType="search"
               />
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+              {[null, 'ACTIVO', 'TRASLADADO', 'RETIRADO', 'EGRESADO'].map((e) => (
+                <TouchableOpacity
+                  key={e || 'TODOS'}
+                  onPress={() => setEstadoFiltro(e)}
+                  style={{
+                    borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5,
+                    borderColor: estadoFiltro === e ? '#5F348F' : '#E2E8F0',
+                    backgroundColor: estadoFiltro === e ? '#F3E8FF' : '#FFFFFF',
+                  }}
+                >
+                  <Text style={{ fontSize: 11.5, fontWeight: '700', color: estadoFiltro === e ? '#5F348F' : '#64748B' }}>
+                    {e || 'TODOS'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
             {cargandoListas ? <LoadingView message="Cargando alumnos..." /> : null}
             {filtrados.map((a) => (
@@ -437,7 +468,7 @@ export default function SecretariaPage() {
             <View style={styles.infoListCard}>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabelText}>Correo</Text>
-                <Text style={styles.infoValueText}>{user?.email}</Text>
+                <Text style={[styles.infoValueText, { fontSize: 11.5 }]}>{user?.email}</Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabelText}>Teléfono</Text>

@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PropTypes from 'prop-types';
@@ -30,25 +31,26 @@ export default function PadrePage() {
   const [activeTab, setActiveTab] = useState('inicio');
   const [hijos, setHijos] = useState(null);
   const [cargando, setCargando] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const nombreUsuario = usuario?.nombre || 'Apoderado';
 
   // useEffect: representados formales del token (sección del periodo vigente).
+  const recargar = async () => {
+    setCargando(true);
+    try {
+      setHijos((await misHijos()) || []);
+    } catch {
+      setHijos([]);
+    } finally {
+      setCargando(false);
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
-    let vivo = true;
-    (async () => {
-      try {
-        const lista = await misHijos();
-        if (vivo) setHijos(lista || []);
-      } catch {
-        if (vivo) setHijos([]);
-      } finally {
-        if (vivo) setCargando(false);
-      }
-    })();
-    return () => {
-      vivo = false;
-    };
+    recargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const tabs = [
@@ -100,7 +102,13 @@ export default function PadrePage() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#5F348F" />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} colors={['#5F348F']} onRefresh={() => { setRefreshing(true); recargar(); }} />
+        }
+      >
         {/* Cabecera Superior */}
         <View style={styles.topBanner}>
           <View style={styles.greetingRow}>
@@ -238,7 +246,7 @@ export default function PadrePage() {
                   <Ionicons name="mail-outline" size={18} color="#64748B" />
                   <Text style={styles.infoLabelText}>Correo</Text>
                 </View>
-                <Text style={styles.infoValueText}>{usuario?.email}</Text>
+                <Text style={[styles.infoValueText, { fontSize: 11.5 }]}>{usuario?.email}</Text>
               </View>
               <View style={styles.infoRow}>
                 <View style={styles.infoLabelGroup}>

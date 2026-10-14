@@ -12,8 +12,9 @@ import { crearSeccion, editarSeccion } from '../../api/catalogo';
 
 // Secciones: grado 1..5, letra mayúscula, únicas por periodo.
 // NO se mueven de periodo: se crea otra fila (histórico por periodo).
-export default function SeccionSection({ secciones, periodos, docentes, onChanged }) {
+export default function SeccionSection({ secciones, periodos, docentes, cursos, onChanged }) {
   const [modal, setModal] = useState(null);
+  const [expandida, setExpandida] = useState(null); // id de sección con cursos visibles
   const [form, setForm] = useState({ grado: '4', letra: '', aula: '', tutorId: null, periodoId: null });
 
   const [loading, setLoading] = useState(false);
@@ -65,17 +66,40 @@ export default function SeccionSection({ secciones, periodos, docentes, onChange
           <Text style={own.addText}>＋ Nueva</Text>
         </TouchableOpacity>
       </View>
-      {secciones.map((s) => (
-        <View key={s.id} style={styles.gradeCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.gradeCourseTitle}>{s.etiqueta} · Aula {s.aula || '—'}</Text>
-            <Text style={styles.gradePeriod}>{s.periodoNombre} · Tutor: {s.tutorNombre || 'sin asignar'}</Text>
+      {secciones.map((s) => {
+        const deLaSeccion = (cursos || []).filter((c) => c.seccionId === s.id);
+        return (
+          <View key={s.id} style={[styles.gradeCard, { flexDirection: 'column', alignItems: 'stretch' }]}>
+            <View>
+              <Text style={styles.gradeCourseTitle}>{s.etiqueta} · Aula {s.aula || '—'}</Text>
+              <Text style={styles.gradePeriod}>{s.periodoNombre} · Tutor: {s.tutorNombre || 'sin asignar'}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 14, marginTop: 8 }}>
+              <TouchableOpacity onPress={() => abrir(s)}>
+                <Text style={own.link}>Editar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setExpandida(expandida === s.id ? null : s.id)}>
+                <Text style={own.link}>
+                  {expandida === s.id ? 'Ocultar cursos' : `Ver cursos (${deLaSeccion.length})`}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {expandida === s.id ? (
+              deLaSeccion.length > 0 ? (
+                <View style={{ marginTop: 8, backgroundColor: '#F8FAFC', borderRadius: 10, padding: 10, gap: 2 }}>
+                  {deLaSeccion.map((c) => (
+                    <Text key={c.id} style={styles.courseMetaText}>
+                      • {c.materiaNombre} — {c.docenteNombre}
+                    </Text>
+                  ))}
+                </View>
+              ) : (
+                <Text style={[styles.courseMetaText, { marginTop: 8 }]}>Sin cursos en esta sección.</Text>
+              )
+            ) : null}
           </View>
-          <TouchableOpacity onPress={() => abrir(s)}>
-            <Text style={own.link}>Editar</Text>
-          </TouchableOpacity>
-        </View>
-      ))}
+        );
+      })}
       {error && !modal ? <ErrorCard error={error} /> : null}
       <FormModal visible={!!modal} title={modal?.mode === 'nuevo' ? 'Nueva sección' : `Editar ${modal?.item.etiqueta}`} onClose={() => setModal(null)}>
         <Field label="Grado (1-5)" value={form.grado} onChangeText={(v) => setForm({ ...form, grado: v })} keyboardType="numeric" />
@@ -97,6 +121,7 @@ SeccionSection.propTypes = {
   secciones: PropTypes.array.isRequired,
   periodos: PropTypes.array.isRequired,
   docentes: PropTypes.array.isRequired,
+  cursos: PropTypes.array.isRequired,
   onChanged: PropTypes.func.isRequired,
 };
 

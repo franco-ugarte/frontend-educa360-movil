@@ -4,7 +4,9 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  StatusBar, // <-- 1. Asegúrate de importar StatusBar aquí
+  StatusBar,
+  RefreshControl,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PropTypes from 'prop-types';
@@ -34,23 +36,24 @@ export default function AlumnoPage() {
   const [activeTab, setActiveTab] = useState('inicio');
   const [cursosReales, setCursosReales] = useState(null);
   const [cargandoCursos, setCargandoCursos] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // useEffect: cursos de SU sección según matrícula vigente (puede ser vacía).
+  const recargarCursos = async () => {
+    setCargandoCursos(true);
+    try {
+      setCursosReales((await misCursosEstudiante()) || []);
+    } catch {
+      setCursosReales([]);
+    } finally {
+      setCargandoCursos(false);
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
-    let vivo = true;
-    (async () => {
-      try {
-        const lista = await misCursosEstudiante();
-        if (vivo) setCursosReales(lista || []);
-      } catch {
-        if (vivo) setCursosReales([]);
-      } finally {
-        if (vivo) setCargandoCursos(false);
-      }
-    })();
-    return () => {
-      vivo = false;
-    };
+    recargarCursos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Ficha del alumno: identidad de la cuenta + sección/matrícula del perfil.
@@ -87,6 +90,9 @@ export default function AlumnoPage() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} colors={['#5F348F']} onRefresh={() => { setRefreshing(true); recargarCursos(); }} />
+        }
       >
         {/* Cabecera Morada Escolar */}
         <View style={styles.topBanner}>
@@ -177,7 +183,14 @@ export default function AlumnoPage() {
                   <Text style={styles.moduleTitle}>Materias y Horarios</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.moduleCard} activeOpacity={0.8}>
+                <TouchableOpacity
+                  style={styles.moduleCard}
+                  activeOpacity={0.8}
+                  onPress={() => Alert.alert(
+                    'Próximamente',
+                    'El control de asistencia llegará con su módulo en el backend.'
+                  )}
+                >
                   <View style={[styles.moduleIconBox, { backgroundColor: '#ECFDF5' }]}>
                     <Ionicons name="calendar-outline" size={20} color="#10B981" />
                   </View>
@@ -329,12 +342,12 @@ export default function AlumnoPage() {
                 <Text style={styles.infoValueText}>{perfil?.matriculaEstado || '—'}</Text>
               </View>
 
-              <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+              <View style={{ paddingVertical: 11 }}>
                 <View style={styles.infoLabelGroup}>
                   <Ionicons name="mail-outline" size={18} color="#64748B" />
-                  <Text style={styles.infoLabelText}>Correo Institucional</Text>
+                  <Text style={styles.infoLabelText}>Correo</Text>
                 </View>
-                <Text style={styles.infoValueText}>
+                <Text style={[styles.infoValueText, { textAlign: 'left', marginTop: 4 }]}>
                   {usuario?.email || `${usuario?.usuario || 'alumno'}@educa360.pe`}
                 </Text>
               </View>

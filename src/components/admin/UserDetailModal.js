@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PropTypes from 'prop-types';
@@ -7,7 +7,7 @@ import Field from '../ui/Field';
 import CosmicButton from '../ui/CosmicButton';
 import LoadingView from '../ui/LoadingView';
 import ErrorCard from '../ui/ErrorCard';
-import { cambiarActivo, resetPassword } from '../../api/admin';
+import { cambiarActivo, resetPassword, detalleUsuario } from '../../api/admin';
 import { initialsOf } from '../../api/mappers';
 
 // Ficha del usuario: editar, baja lógica y reseteo de clave.
@@ -17,7 +17,18 @@ export default function UserDetailModal({ visible, onClose, user, onEdit, onChan
   const [nueva, setNueva] = useState('Educa@360');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [fresco, setFresco] = useState(null);
 
+  // Al abrir, recarga la ficha del servidor (otro admin pudo cambiarla).
+  useEffect(() => {
+    if (!visible || !user) return;
+    setFresco(null);
+    setError(null);
+    setTab('info');
+    detalleUsuario(user.id).then(setFresco).catch(() => {});
+  }, [visible, user]);
+
+  const u = fresco || user;
   if (!user) return null;
 
   const toggleActivo = async () => {
@@ -53,26 +64,26 @@ export default function UserDetailModal({ visible, onClose, user, onEdit, onChan
   };
 
   return (
-    <FormModal visible={visible} title={`${user.nombres} ${user.apellidos}`} onClose={onClose}>
+    <FormModal visible={visible} title={`${u.nombres} ${u.apellidos}`} onClose={onClose}>
       <View style={styles.head}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initialsOf(`${user.nombres} ${user.apellidos}`)}</Text>
+          <Text style={styles.avatarText}>{initialsOf(`${u.nombres} ${u.apellidos}`)}</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.email}>{user.email}</Text>
-          <Text style={styles.meta}>{user.rol} · DNI {user.dni} · {user.activo ? 'Activo' : 'Inactivo'}</Text>
+          <Text style={styles.email}>{u.email}</Text>
+          <Text style={styles.meta}>{u.rol} · DNI {u.dni} · {u.activo ? 'Activo' : 'Inactivo'}</Text>
         </View>
       </View>
 
       <View style={styles.row}>
-        <TouchableOpacity style={[styles.action, { borderColor: '#5F348F' }]} onPress={() => onEdit(user)}>
+        <TouchableOpacity style={[styles.action, { borderColor: '#5F348F' }]} onPress={() => onEdit(u)}>
           <Ionicons name="pencil-outline" size={16} color="#5F348F" />
           <Text style={[styles.actionText, { color: '#5F348F' }]}>Editar</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.action, { borderColor: user.activo ? '#FECACA' : '#A7F3D0' }]} onPress={toggleActivo}>
-          <Ionicons name={user.activo ? 'ban-outline' : 'checkmark-circle-outline'} size={16} color={user.activo ? '#DC2626' : '#059669'} />
-          <Text style={[styles.actionText, { color: user.activo ? '#DC2626' : '#059669' }]}>
-            {user.activo ? 'Dar de baja' : 'Reactivar'}
+        <TouchableOpacity style={[styles.action, { borderColor: u.activo ? '#FECACA' : '#A7F3D0' }]} onPress={toggleActivo}>
+          <Ionicons name={u.activo ? 'ban-outline' : 'checkmark-circle-outline'} size={16} color={u.activo ? '#DC2626' : '#059669'} />
+          <Text style={[styles.actionText, { color: u.activo ? '#DC2626' : '#059669' }]}>
+            {u.activo ? 'Dar de baja' : 'Reactivar'}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.action, { borderColor: '#E2E8F0' }]} onPress={() => setTab(tab === 'clave' ? 'info' : 'clave')}>
