@@ -23,7 +23,7 @@ npx expo start            # escanea el QR con Expo Go
 ```
 
 En celular físico la app llama a `EXPO_PUBLIC_API_URL` (ver `.env`, ej.
-`http://192.168.100.16:8080`): el `localhost` del celu es él mismo.
+`http://IP:_LAN:8080`): el `localhost` del celu es él mismo.
 Abrir en firewall los puertos 8080 (backend) y 8081 (Expo).
 
 ## Cuentas de prueba (clave única `Educa@360`)
