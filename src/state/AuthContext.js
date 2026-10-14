@@ -4,19 +4,19 @@ import { getToken, getStoredUser, saveSession, clearSession } from '../api/token
 import { login as apiLogin, me as apiMe } from '../api/auth';
 import { mapRol } from '../api/mappers';
 
-// Manejo de estados claro: una sola máquina { status, user, token, error }.
-const initial = { status: 'loading', user: null, token: null, error: null };
+// Manejo de estados claro: una sola máquina { status, user, perfil, token, error }.
+const initial = { status: 'loading', user: null, perfil: null, token: null, error: null };
 
 function reducer(state, action) {
   switch (action.type) {
     case 'RESTORE':
-      return { status: 'ready', user: action.user, token: action.token, error: null };
+      return { status: 'ready', user: action.user, perfil: action.perfil || null, token: action.token, error: null };
     case 'LOGIN_OK':
-      return { status: 'ready', user: action.user, token: action.token, error: null };
+      return { status: 'ready', user: action.user, perfil: action.perfil || null, token: action.token, error: null };
     case 'LOGIN_FAIL':
       return { ...state, status: 'ready', error: action.error };
     case 'LOGOUT':
-      return { status: 'ready', user: null, token: null, error: null };
+      return { status: 'ready', user: null, perfil: null, token: null, error: null };
     case 'CLEAR_ERROR':
       return { ...state, error: null };
     default:
@@ -36,13 +36,13 @@ export function AuthProvider({ children }) {
       if (token && user) {
         try {
           const fresh = await apiMe();
-          await saveSession(token, fresh);
-          dispatch({ type: 'RESTORE', user: fresh, token });
+          await saveSession(token, fresh.usuario);
+          dispatch({ type: 'RESTORE', user: fresh.usuario, perfil: fresh.perfil, token });
         } catch {
-          dispatch({ type: 'RESTORE', user, token });
+          dispatch({ type: 'RESTORE', user, perfil: null, token });
         }
       } else {
-        dispatch({ type: 'RESTORE', user: null, token: null });
+        dispatch({ type: 'RESTORE', user: null, perfil: null, token: null });
       }
     })();
   }, []);
@@ -54,7 +54,13 @@ export function AuthProvider({ children }) {
       signIn: async (email, password) => {
         try {
           const data = await apiLogin(email, password);
-          dispatch({ type: 'LOGIN_OK', user: data.user, token: data.token });
+          let perfil = null;
+          try {
+            perfil = (await apiMe()).perfil;
+          } catch {
+            perfil = null;
+          }
+          dispatch({ type: 'LOGIN_OK', user: data.user, perfil, token: data.token });
           return data;
         } catch (e) {
           dispatch({ type: 'LOGIN_FAIL', error: e });

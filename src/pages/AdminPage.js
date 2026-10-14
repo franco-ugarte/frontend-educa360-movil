@@ -4,12 +4,18 @@ import { Ionicons } from '@expo/vector-icons';
 import GradientButtonGroup from '../components/ui/GradientButtonGroup';
 import LoadingView from '../components/ui/LoadingView';
 import ErrorCard from '../components/ui/ErrorCard';
-import EmptyState from '../components/ui/EmptyState';
 import { styles } from '../styles/Alumno.styles';
 import { useAuth } from '../state/AuthContext';
 import { displayName, initialsOf } from '../api/mappers';
 import { listarUsuarios } from '../api/admin';
-import { listarPeriodos, listarMaterias, listarCursos } from '../api/catalogo';
+import { listarPeriodos, listarMaterias, listarSecciones, listarCursos, listarDocentes } from '../api/catalogo';
+import UserFormModal from '../components/admin/UserFormModal';
+import UserDetailModal from '../components/admin/UserDetailModal';
+import PeriodoSection from '../components/admin/PeriodoSection';
+import MateriaSection from '../components/admin/MateriaSection';
+import SeccionSection from '../components/admin/SeccionSection';
+import HabilitacionesSection from '../components/admin/HabilitacionesSection';
+import CursoSection from '../components/admin/CursoSection';
 
 // ADMIN (CONTEXT §3.1): personal, periodos/materias/secciones/cursos,
 // reportes globales. No gestiona tickets (es de SECRETARIA).
@@ -22,7 +28,13 @@ export default function AdminPage() {
   const [error, setError] = useState(null);
   const [periodos, setPeriodos] = useState([]);
   const [materias, setMaterias] = useState([]);
+  const [secciones, setSecciones] = useState([]);
+  const [docentes, setDocentes] = useState([]);
   const [cursos, setCursos] = useState([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [formModal, setFormModal] = useState(null); // null | {mode:'nuevo'} | {mode:'editar', user}
+  const [detailUser, setDetailUser] = useState(null);
+  const recargar = () => setRefreshKey((k) => k + 1);
 
   const tabs = [
     { id: 'usuarios', label: 'Usuarios', icon: 'people', iconOutline: 'people-outline' },
@@ -30,23 +42,27 @@ export default function AdminPage() {
     { id: 'perfil', label: 'Perfil', icon: 'person', iconOutline: 'person-outline' },
   ];
 
-  // useEffect: carga panel ADMIN al montar (usuarios + catálogo).
+  // useEffect: carga panel ADMIN al montar y tras cada mutación.
   useEffect(() => {
     let vivo = true;
     (async () => {
       setLoading(true);
       setError(null);
       try {
-        const [u, p, m, c] = await Promise.all([
+        const [u, p, m, s, d, c] = await Promise.all([
           listarUsuarios({}),
           listarPeriodos().catch(() => []),
           listarMaterias().catch(() => []),
+          listarSecciones().catch(() => []),
+          listarDocentes().catch(() => []),
           listarCursos().catch(() => []),
         ]);
         if (!vivo) return;
         setUsuarios(u);
         setPeriodos(p || []);
         setMaterias(m || []);
+        setSecciones(s || []);
+        setDocentes(d || []);
         setCursos(c || []);
       } catch (e) {
         if (vivo) setError(e);
@@ -57,7 +73,7 @@ export default function AdminPage() {
     return () => {
       vivo = false;
     };
-  }, []);
+  }, [refreshKey]);
 
   const filtrados = (usuarios || []).filter((u) => {
     if (!q.trim()) return true;
@@ -94,10 +110,21 @@ export default function AdminPage() {
           <View style={styles.section}><ErrorCard error={error} /></View>
         ) : activeTab === 'usuarios' ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Usuarios ({filtrados.length})</Text>
-            <Text style={styles.sectionSubtitle}>
-              {Object.entries(counts).map(([r, n]) => `${r}:${n}`).join(' · ') || 'Sin usuarios'}
-            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View>
+                <Text style={styles.sectionTitle}>Usuarios ({filtrados.length})</Text>
+                <Text style={styles.sectionSubtitle}>
+                  {Object.entries(counts).map(([r, n]) => `${r}:${n}`).join(' · ') || 'Sin usuarios'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={{ backgroundColor: '#5F348F', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}
+                onPress={() => setFormModal({ mode: 'nuevo' })}
+                activeOpacity={0.85}
+              >
+                <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 13 }}>＋ Nuevo</Text>
+              </TouchableOpacity>
+            </View>
             <View style={[styles.infoListCard, { marginTop: 10 }]}>
               <TextInput
                 placeholder="Buscar por email, nombre o DNI"
@@ -108,28 +135,46 @@ export default function AdminPage() {
                 autoCapitalize="none"
               />
             </View>
+            <Text style={[styles.sectionSubtitle, { marginBottom: 6 }]}>Toca una ficha para editar, dar de baja o resetear clave.</Text>
             {filtrados.slice(0, 30).map((u) => (
-              <View key={u.id} style={styles.courseCardPro}>
-                <View style={styles.courseTopRow}>
-                  <View style={[styles.courseIconBox, { backgroundColor: '#F3E8FF' }]}>
-                    <Text style={{ color: '#5F348F', fontWeight: '800' }}>{initialsOf(`${u.nombres} ${u.apellidos}`)}</Text>
-                  </View>
-                  <View style={styles.courseMainInfo}>
-                    <Text style={styles.courseTitle}>{u.nombres} {u.apellidos}</Text>
-                    <Text style={styles.courseTeacherName}>{u.email} · DNI {u.dni}</Text>
-                  </View>
-                  <View style={styles.courseTag}>
-                    <Text style={styles.courseTagText}>{u.rol}</Text>
+              <TouchableOpacity key={u.id} onPress={() => setDetailUser(u)} activeOpacity={0.85}>
+                <View style={styles.courseCardPro}>
+                  <View style={styles.courseTopRow}>
+                    <View style={[styles.courseIconBox, { backgroundColor: u.activo ? '#F3E8FF' : '#F1F5F9' }]}>
+                      <Text style={{ color: u.activo ? '#5F348F' : '#94A3B8', fontWeight: '800' }}>{initialsOf(`${u.nombres} ${u.apellidos}`)}</Text>
+                    </View>
+                    <View style={styles.courseMainInfo}>
+                      <Text style={styles.courseTitle}>{u.nombres} {u.apellidos}{u.activo ? '' : ' (inactivo)'}</Text>
+                      <Text style={styles.courseTeacherName}>{u.email} · DNI {u.dni}</Text>
+                    </View>
+                    <View style={styles.courseTag}>
+                      <Text style={styles.courseTagText}>{u.rol}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
+            <UserFormModal
+              visible={!!formModal}
+              editUser={formModal?.mode === 'editar' ? formModal.user : null}
+              onClose={() => setFormModal(null)}
+              onSaved={() => { setFormModal(null); recargar(); }}
+            />
+            <UserDetailModal
+              visible={!!detailUser}
+              user={detailUser}
+              onClose={() => setDetailUser(null)}
+              onEdit={(u) => { setDetailUser(null); setFormModal({ mode: 'editar', user: u }); }}
+              onChanged={() => { setDetailUser(null); recargar(); }}
+            />
           </View>
         ) : activeTab === 'catalogo' ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Catálogo académico</Text>
-            <Text style={styles.sectionSubtitle}>Periodos · materias · cursos del backend real</Text>
-            <View style={styles.mainCard}>
+            <Text style={styles.sectionSubtitle}>Periodos · materias · cursos</Text>
+            {/* marginTop positivo: mainCard trae -15 para solaparse al banner,
+                aquí taparía el subtítulo. */}
+            <View style={[styles.mainCard, { marginTop: 10 }]}>
               <View style={styles.statsRow}>
                 <View style={styles.statCol}>
                   <Text style={[styles.statValue, { color: '#5F348F' }]}>{periodos.length}</Text>
@@ -155,9 +200,11 @@ export default function AdminPage() {
                 </View>
               </View>
             ))}
-            {cursos.length === 0 ? (
-              <EmptyState title="Sin cursos aún" hint="Crea periodos, secciones y cursos desde el panel web o Swagger." />
-            ) : null}
+            <PeriodoSection periodos={periodos} onChanged={recargar} />
+            <MateriaSection materias={materias} onChanged={recargar} />
+            <SeccionSection secciones={secciones} periodos={periodos} docentes={docentes} onChanged={recargar} />
+            <HabilitacionesSection docentes={docentes} materias={materias} onChanged={recargar} />
+            <CursoSection cursos={cursos} docentes={docentes} materias={materias} secciones={secciones} onChanged={recargar} />
           </View>
         ) : (
           <View style={styles.section}>
@@ -168,6 +215,31 @@ export default function AdminPage() {
               <Text style={styles.profileFullName}>{nombre}</Text>
               <View style={styles.profileRoleTag}>
                 <Text style={styles.profileRoleText}>Administrador</Text>
+              </View>
+            </View>
+            <View style={styles.infoListCard}>
+              <View style={styles.infoRow}>
+                <View style={styles.infoLabelGroup}>
+                  <Ionicons name="mail-outline" size={18} color="#64748B" />
+                  <Text style={styles.infoLabelText}>Correo</Text>
+                </View>
+                <Text style={styles.infoValueText}>{user?.email}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <View style={styles.infoLabelGroup}>
+                  <Ionicons name="call-outline" size={18} color="#64748B" />
+                  <Text style={styles.infoLabelText}>Teléfono</Text>
+                </View>
+                <Text style={styles.infoValueText}>
+                  {(user?.telefonos || []).join(', ') || 'Sin registrar'}
+                </Text>
+              </View>
+              <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+                <View style={styles.infoLabelGroup}>
+                  <Ionicons name="card-outline" size={18} color="#64748B" />
+                  <Text style={styles.infoLabelText}>DNI</Text>
+                </View>
+                <Text style={styles.infoValueText}>{user?.dni}</Text>
               </View>
             </View>
             <TouchableOpacity style={styles.logoutProButton} onPress={signOut} activeOpacity={0.8}>

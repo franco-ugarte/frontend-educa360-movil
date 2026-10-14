@@ -8,13 +8,13 @@ import EmptyState from '../components/ui/EmptyState';
 import { styles } from '../styles/Alumno.styles';
 import { useAuth } from '../state/AuthContext';
 import { displayName, initialsOf } from '../api/mappers';
-import { listarCursos, listarHorario } from '../api/catalogo';
+import { misCursos } from '../api/catalogo';
 
 // DOCENTE (CONTEXT §3.3): asistencia, calificaciones 0-20, recursos y
 // comunicados — pendientes en backend. Consume lo real (/me + cursos si es
 // ADMIN) y marca el resto como pendiente sin romper el diseño.
 export default function ProfesorPage() {
-  const { user, signOut } = useAuth();
+  const { user, perfil, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('inicio');
   const [cursos, setCursos] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -26,14 +26,13 @@ export default function ProfesorPage() {
     { id: 'perfil', label: 'Perfil', icon: 'person', iconOutline: 'person-outline' },
   ];
 
-  // useEffect: intenta cursos del docente; 403 esperado si no es ADMIN.
+  // useEffect: SUS cursos del backend (GET /docente/cursos, zona DOCENTE).
   useEffect(() => {
     let vivo = true;
     (async () => {
       try {
-        const lista = await listarCursos();
-        const mios = (lista || []).filter((c) => c.docenteId === user?.id || c.docente?.id === user?.id);
-        if (vivo) setCursos(mios);
+        const lista = await misCursos();
+        if (vivo) setCursos(lista || []);
       } catch (e) {
         if (vivo) setError(e);
       } finally {
@@ -43,7 +42,7 @@ export default function ProfesorPage() {
     return () => {
       vivo = false;
     };
-  }, [user?.id]);
+  }, []);
 
   const nombre = displayName(user);
 
@@ -71,15 +70,15 @@ export default function ProfesorPage() {
                   <View style={styles.avatarCircle}>
                     <Text style={styles.avatarText}>{initialsOf(nombre)}</Text>
                   </View>
-                  <View>
-                    <Text style={styles.studentName}>{nombre}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.studentName} numberOfLines={2}>{nombre}</Text>
                     <Text style={styles.studentGrade}>Docente · {user?.email}</Text>
                   </View>
                 </View>
-                <View style={styles.statusBadge}>
-                  <View style={styles.statusDot} />
-                  <Text style={styles.statusText}>Activo</Text>
-                </View>
+              </View>
+              <View style={[styles.statusBadge, { alignSelf: 'flex-start', marginTop: 10 }]}>
+                <View style={styles.statusDot} />
+                <Text style={styles.statusText}>Activo</Text>
               </View>
               <View style={styles.statsRow}>
                 <View style={styles.statCol}>
@@ -112,22 +111,28 @@ export default function ProfesorPage() {
         {activeTab === 'cursos' && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Mis cursos asignados</Text>
-            <Text style={styles.sectionSubtitle}>Docente × materia × sección (backend real)</Text>
+            <Text style={styles.sectionSubtitle}>Docente × materia × sección</Text>
             {loading ? (
-              <LoadingView message="Consultando cursos..." />
-            ) : error && error.status === 403 ? (
-              <EmptyState
-                icon="lock-closed-outline"
-                title="Solo ADMIN lista cursos hoy"
-                hint="El catálogo es exclusivo de ADMIN. Tus asignaciones se verán aquí cuando el backend exponga cursos por docente."
-              />
+              <LoadingView message="Consultando tus cursos..." />
             ) : error ? (
               <ErrorCard error={error} />
             ) : cursos && cursos.length > 0 ? (
               cursos.map((c) => (
                 <View key={c.id} style={styles.courseCardPro}>
-                  <Text style={styles.courseTitle}>{c.materiaNombre || `Curso #${c.id}`}</Text>
-                  <Text style={styles.courseTeacherName}>Sección {c.seccionEtiqueta || c.seccionId}</Text>
+                  <View style={styles.courseTopRow}>
+                    <View style={[styles.courseIconBox, { backgroundColor: '#F3E8FF' }]}>
+                      <Ionicons name="book" size={20} color="#5F348F" />
+                    </View>
+                    <View style={styles.courseMainInfo}>
+                      <Text style={styles.courseTitle}>{c.materiaNombre}</Text>
+                      <Text style={styles.courseTeacherName}>
+                        {c.seccionEtiqueta} · {c.periodoNombre}
+                      </Text>
+                    </View>
+                    <View style={styles.courseTag}>
+                      <Text style={styles.courseTagText}>En Curso</Text>
+                    </View>
+                  </View>
                 </View>
               ))
             ) : (
@@ -151,6 +156,16 @@ export default function ProfesorPage() {
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabelText}>Correo</Text>
                 <Text style={styles.infoValueText}>{user?.email}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabelText}>Título</Text>
+                <Text style={styles.infoValueText}>{perfil?.titulo || '—'}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabelText}>Habilitado en</Text>
+                <Text style={styles.infoValueText}>
+                  {(perfil?.materias || []).map((m) => m.nombre).join(', ') || '—'}
+                </Text>
               </View>
               <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
                 <Text style={styles.infoLabelText}>DNI</Text>

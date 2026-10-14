@@ -26,7 +26,10 @@ const TAB_STYLE = {
   headerShown: false,
   tabBarActiveTintColor: '#5F348F',
   tabBarInactiveTintColor: '#94A3B8',
-  tabBarStyle: { borderTopColor: '#E2E8F0' },
+  // Oculta la barra del Tab navigator: cada dashboard ya trae su propio
+  // dock interno (GradientButtonGroup) y la barra externa duplicaba el label.
+  // Stack + Tab siguen existiendo en la jerarquía (requisito 6).
+  tabBarStyle: { display: 'none' },
 };
 
 function AlumnoTabs() {

@@ -24,3 +24,7 @@ export const cambiarActivo = (id, activo) =>
 
 export const resetPassword = (id, password) =>
   apiFetch(`/admin/usuarios/${id}/password`, { method: 'PATCH', body: { password } });
+
+// Edición: rol no editable; fechaNacimiento/titulo solo aplican a su rol.
+export const actualizarUsuario = (id, data) =>
+  apiFetch(`/admin/usuarios/${id}`, { method: 'PUT', body: data });

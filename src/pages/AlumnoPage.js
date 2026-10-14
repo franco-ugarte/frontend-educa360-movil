@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,17 +10,19 @@ import { Ionicons } from '@expo/vector-icons';
 import PropTypes from 'prop-types';
 import { LinearGradient } from 'expo-linear-gradient';
 import GradientButtonGroup from '../components/ui/GradientButtonGroup';
+import LoadingView from '../components/ui/LoadingView';
+import ErrorCard from '../components/ui/ErrorCard';
+import EmptyState from '../components/ui/EmptyState';
 import { styles } from '../styles/Alumno.styles';
-import { alumnos } from '../data/alumnos';
-import { cursos } from '../data/cursos';
-import { profesores } from '../data/profesores';
 import { useAuth } from '../state/AuthContext';
 import { displayName } from '../api/mappers';
+import { misCursosEstudiante } from '../api/catalogo';
 
 export default function AlumnoPage() {
-  const { user: backendUser, signOut } = useAuth();
+  const { user: backendUser, perfil, signOut } = useAuth();
   // Adaptador backend -> vista: el backend entrega {nombres,apellidos,email,rol};
-  // los cursos/notas aún son vista local (módulos pendientes en backend).
+  // los cursos salen de /estudiante/cursos (matrícula vigente); las notas
+  // siguen locales porque calificaciones aún no existe en el backend.
   const usuario = {
     personaId: 101,
     nombre: displayName(backendUser),
@@ -30,21 +32,36 @@ export default function AlumnoPage() {
   const setPage = () => {};
   // Pestañas: 'inicio' | 'cursos' | 'notas' | 'perfil'
   const [activeTab, setActiveTab] = useState('inicio');
+  const [cursosReales, setCursosReales] = useState(null);
+  const [cargandoCursos, setCargandoCursos] = useState(true);
 
-  // Buscar información del alumno logueado
-  const alumnoData = alumnos.find((a) => a.id === usuario?.personaId) || {
-    id: 101,
-    nombre: usuario?.nombre || usuario?.usuario || 'Juan Pérez',
-    grado: '4to Grado B',
-    seccion: 'Secundaria',
-    asistencia: '94%',
-    promedio: 15.8,
-  };
+  // useEffect: cursos de SU sección según matrícula vigente (puede ser vacía).
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const lista = await misCursosEstudiante();
+        if (vivo) setCursosReales(lista || []);
+      } catch {
+        if (vivo) setCursosReales([]);
+      } finally {
+        if (vivo) setCargandoCursos(false);
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
-  // Buscar docente asignado
-  const getProfesorNombre = (profesorId) => {
-    const profe = profesores.find((p) => p.id === profesorId);
-    return profe ? profe.nombre : 'Docente Asignado';
+  // Ficha del alumno: identidad de la cuenta + sección/matrícula del perfil.
+  // Promedio y asistencia aún no tienen endpoints: se muestran como '–'.
+  const alumnoData = {
+    id: backendUser?.id,
+    nombre: displayName(backendUser),
+    grado: perfil?.seccionEtiqueta || 'Sin matrícula',
+    seccion: perfil?.periodoNombre || '',
+    asistencia: '–',
+    promedio: '–',
   };
 
   const initials = alumnoData.nombre
@@ -101,18 +118,19 @@ export default function AlumnoPage() {
                   <View style={styles.avatarCircle}>
                     <Text style={styles.avatarText}>{initials}</Text>
                   </View>
-                  <View>
-                    <Text style={styles.studentName}>{alumnoData.nombre}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.studentName} numberOfLines={2}>{alumnoData.nombre}</Text>
                     <Text style={styles.studentGrade}>
                       {alumnoData.grado} - {alumnoData.seccion}
                     </Text>
                   </View>
                 </View>
+              </View>
 
-                <View style={styles.statusBadge}>
-                  <View style={styles.statusDot} />
-                  <Text style={styles.statusText}>Regular</Text>
-                </View>
+              {/* Etiqueta debajo del nombre para no tapar nombres largos */}
+              <View style={[styles.statusBadge, { alignSelf: 'flex-start', marginTop: 10 }]}>
+                <View style={styles.statusDot} />
+                <Text style={styles.statusText}>Regular</Text>
               </View>
 
               {/* Métricas rápidas */}
@@ -137,7 +155,7 @@ export default function AlumnoPage() {
 
                 <View style={styles.statCol}>
                   <Text style={[styles.statValue, { color: '#F9B201' }]}>
-                    {cursos.length}
+                    {cursosReales ? cursosReales.length : '–'}
                   </Text>
                   <Text style={styles.statLabel}>Cursos</Text>
                 </View>
@@ -192,34 +210,33 @@ export default function AlumnoPage() {
           </>
         )}
 
-        {/* PESTAÑA 2: CURSOS CON DISEÑO PRO */}
+        {/* PESTAÑA 2: CURSOS REALES (matrícula vigente) */}
         {activeTab === 'cursos' && (
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
               <View>
                 <Text style={styles.sectionTitle}>Mis Cursos Matriculados</Text>
                 <Text style={styles.sectionSubtitle}>
-                  Periodo Escolar Vigente • {cursos.length} asignaturas
+                  {perfil?.seccionEtiqueta
+                    ? `${perfil.seccionEtiqueta} · ${perfil.periodoNombre} · Matrícula ${perfil.matriculaEstado}`
+                    : 'Sin matrícula vigente'}
                 </Text>
               </View>
             </View>
 
-            {cursos.map((item, index) => {
-              const progress = index === 0 ? 75 : 60;
-              const iconName = item.nombre.toLowerCase().includes('mat') ? 'calculator' : 'flask';
-              const iconColor = index === 0 ? '#5F348F' : '#0284C7';
-              const iconBg = index === 0 ? '#F3E8FF' : '#E0F2FE';
-
-              return (
+            {cargandoCursos ? (
+              <LoadingView message="Consultando tus cursos..." />
+            ) : cursosReales && cursosReales.length > 0 ? (
+              cursosReales.map((item) => (
                 <View key={item.id} style={styles.courseCardPro}>
                   <View style={styles.courseTopRow}>
-                    <View style={[styles.courseIconBox, { backgroundColor: iconBg }]}>
-                      <Ionicons name={iconName} size={22} color={iconColor} />
+                    <View style={[styles.courseIconBox, { backgroundColor: '#F3E8FF' }]}>
+                      <Ionicons name="book" size={22} color="#5F348F" />
                     </View>
                     <View style={styles.courseMainInfo}>
-                      <Text style={styles.courseTitle}>{item.nombre}</Text>
+                      <Text style={styles.courseTitle}>{item.materiaNombre}</Text>
                       <Text style={styles.courseTeacherName}>
-                        Docente: {getProfesorNombre(item.profesorId)}
+                        Docente: {item.docenteNombre}
                       </Text>
                     </View>
                     <View style={styles.courseTag}>
@@ -229,53 +246,38 @@ export default function AlumnoPage() {
 
                   <View style={styles.courseMetaRow}>
                     <View style={styles.courseMetaItem}>
-                      <Ionicons name="time-outline" size={15} color="#64748B" />
-                      <Text style={styles.courseMetaText}>
-                        {index === 0 ? 'Lun - Mié 8:00 AM' : 'Mar - Jue 10:15 AM'}
-                      </Text>
+                      <Ionicons name="people-outline" size={15} color="#64748B" />
+                      <Text style={styles.courseMetaText}>{item.seccionEtiqueta}</Text>
                     </View>
                     <View style={styles.courseMetaItem}>
-                      <Ionicons name="business-outline" size={15} color="#64748B" />
-                      <Text style={styles.courseMetaText}>Aula {201 + index}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.progressContainer}>
-                    <View style={styles.progressLabels}>
-                      <Text style={styles.progressTitle}>Avance del Silabo</Text>
-                      <Text style={styles.progressPercent}>{progress}%</Text>
-                    </View>
-                    <View style={styles.progressBarBg}>
-                      <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
+                      <Ionicons name="calendar-outline" size={15} color="#64748B" />
+                      <Text style={styles.courseMetaText}>{item.periodoNombre}</Text>
                     </View>
                   </View>
                 </View>
-              );
-            })}
+              ))
+            ) : (
+              <EmptyState
+                title="Sin cursos matriculados"
+                hint="Aún no tienes matrícula en el periodo vigente. Acércate a Secretaría."
+              />
+            )}
           </View>
         )}
 
-        {/* PESTAÑA 3: NOTAS / CALIFICACIONES */}
+        {/* PESTAÑA 3: NOTAS (pendiente en backend: sin endpoint de calificaciones) */}
         {activeTab === 'notas' && (
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
               <View>
                 <Text style={styles.sectionTitle}>Boleta de Calificaciones</Text>
-                <Text style={styles.sectionSubtitle}>Bimestre II • Escala Vigesimal</Text>
+                <Text style={styles.sectionSubtitle}>Escala vigesimal (0–20)</Text>
               </View>
             </View>
-
-            {cursos.map((item, index) => (
-              <View key={item.id} style={styles.gradeCard}>
-                <View>
-                  <Text style={styles.gradeCourseTitle}>{item.nombre}</Text>
-                  <Text style={styles.gradePeriod}>Evaluación Continua + Parcial</Text>
-                </View>
-                <View style={styles.gradeScoreBadge}>
-                  <Text style={styles.gradeScoreValue}>{index === 0 ? '16.5' : '15.0'}</Text>
-                </View>
-              </View>
-            ))}
+            <EmptyState
+              title="Calificaciones pendientes en backend"
+              hint="Tus notas 0–20 aparecerán aquí cuando el módulo exista."
+            />
           </View>
         )}
 
@@ -306,33 +308,25 @@ export default function AlumnoPage() {
                   <Ionicons name="card-outline" size={18} color="#64748B" />
                   <Text style={styles.infoLabelText}>Código Estudiante</Text>
                 </View>
-                <Text style={styles.infoValueText}>ALU-{alumnoData.id || 101}</Text>
+                <Text style={styles.infoValueText}>ALU-{alumnoData.id || '—'}</Text>
               </View>
 
               <View style={styles.infoRow}>
                 <View style={styles.infoLabelGroup}>
                   <Ionicons name="school-outline" size={18} color="#64748B" />
-                  <Text style={styles.infoLabelText}>Grado y Sección</Text>
+                  <Text style={styles.infoLabelText}>Sección vigente</Text>
                 </View>
                 <Text style={styles.infoValueText}>
-                  {alumnoData.grado} - {alumnoData.seccion}
+                  {perfil?.seccionEtiqueta ? `${perfil.seccionEtiqueta} · ${perfil.periodoNombre}` : 'Sin matrícula'}
                 </Text>
               </View>
 
               <View style={styles.infoRow}>
                 <View style={styles.infoLabelGroup}>
-                  <Ionicons name="person-outline" size={18} color="#64748B" />
-                  <Text style={styles.infoLabelText}>Docente Tutor</Text>
+                  <Ionicons name="card-outline" size={18} color="#64748B" />
+                  <Text style={styles.infoLabelText}>Matrícula</Text>
                 </View>
-                <Text style={styles.infoValueText}>Prof. María López</Text>
-              </View>
-
-              <View style={styles.infoRow}>
-                <View style={styles.infoLabelGroup}>
-                  <Ionicons name="people-outline" size={18} color="#64748B" />
-                  <Text style={styles.infoLabelText}>Apoderado</Text>
-                </View>
-                <Text style={styles.infoValueText}>Carlos Pérez</Text>
+                <Text style={styles.infoValueText}>{perfil?.matriculaEstado || '—'}</Text>
               </View>
 
               <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
