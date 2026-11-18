@@ -30,8 +30,8 @@ export default function GradientButtonGroup({
                   activeOpacity={0.85}
                   onPress={() => onSelectTab(tab.id)}
                 >
-                  <Ionicons name={tab.icon} size={18} color="#5F348F" />
-                  <Text style={styles.activeLabel}>{tab.label}</Text>
+                  <Ionicons name={tab.icon} size={19} color="#5F348F" />
+                  <Text style={styles.activeLabel} numberOfLines={1}>{tab.label}</Text>
                 </TouchableOpacity>
               </LinearGradient>
             );
@@ -44,8 +44,8 @@ export default function GradientButtonGroup({
               activeOpacity={0.7}
               onPress={() => onSelectTab(tab.id)}
             >
-              <Ionicons name={tab.iconOutline || tab.icon} size={18} color="#94A3B8" />
-              <Text style={styles.inactiveLabel}>{tab.label}</Text>
+              <Ionicons name={tab.iconOutline || tab.icon} size={19} color="#94A3B8" />
+              <Text style={styles.inactiveLabel} numberOfLines={1}>{tab.label}</Text>
             </TouchableOpacity>
           );
         })}

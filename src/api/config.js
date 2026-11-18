@@ -8,3 +8,4 @@ export const API_BASE_URL =
 export const API_PREFIX = '/api/v1';
 export const API_URL = `${API_BASE_URL}${API_PREFIX}`;
 export const REQUEST_TIMEOUT_MS = 15000;
+export const UPLOAD_TIMEOUT_MS = 60000;

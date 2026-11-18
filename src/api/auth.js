@@ -17,6 +17,19 @@ export async function me() {
   return apiFetch('/auth/me');
 }
 
+/**
+ * PATCH /auth/me/telefonos -> reemplaza los teléfonos del propio usuario.
+ * La lista enviada es la que queda (`[]` los quita). Máximo 5, formato
+ * `\+?\d{7,15}`. ESTUDIANTE recibe 403: sus contactos los gestiona su apoderado.
+ * Devuelve el mismo `MeResponse` que `GET /auth/me`.
+ */
+export async function actualizarTelefonos(telefonos) {
+  return apiFetch('/auth/me/telefonos', {
+    method: 'PATCH',
+    body: { telefonos },
+  });
+}
+
 export async function logout() {
   await clearSession();
 }

@@ -5,69 +5,51 @@ import {
   TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
+  ScrollView,
   Platform,
   StatusBar,
   Image,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CosmicButton from '../components/ui/CosmicButton';
 import ErrorCard from '../components/ui/ErrorCard';
 import { styles } from '../styles/Login.styles';
 import { useAuth } from '../state/AuthContext';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function Login() {
   const { signIn } = useAuth();
-  const [usuario, setUsuario] = useState('');
+  const insets = useSafeAreaInsets();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [isUserFocused, setIsUserFocused] = useState(false);
-  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+  const [focus, setFocus] = useState(null);
 
-  // Validación individual estricta por campo (dominio + mínimo backend 8).
-  const validateField = (field, value) => {
-    let errorMsg = null;
-
-    if (field === 'usuario') {
-      if (!value.trim()) {
-        errorMsg = 'El correo institucional es obligatorio.';
-      } else if (!value.trim().endsWith('@educa360.pe') && !value.trim().endsWith('@educa360.com')) {
-        errorMsg = 'El correo debe pertenecer al dominio @educa360.pe';
-      }
-    }
-
-    if (field === 'password') {
-      if (!value) {
-        errorMsg = 'Falta ingresar la contraseña.';
-      } else if (value.length < 8) {
-        errorMsg = 'La contraseña debe tener al menos 8 caracteres.';
-      }
-    }
-
-    setErrors((prev) => ({ ...prev, [field]: errorMsg }));
-    return errorMsg;
+  const validateEmail = (value) => {
+    if (!value.trim()) return 'Ingresa tu correo institucional.';
+    if (!EMAIL_RE.test(value.trim())) return 'El correo no tiene un formato válido.';
+    return null;
   };
 
   // useState + backend real: POST /api/v1/auth/login, sesión en AsyncStorage.
   const handleLogin = async () => {
-    const userError = validateField('usuario', usuario);
-    const passError = validateField('password', password);
-    if (userError || passError) return;
+    const emailError = validateEmail(email);
+    const passwordError = password ? null : 'Ingresa tu contraseña.';
+    setErrors({ email: emailError, password: passwordError });
+    if (emailError || passwordError) return;
 
     setLoading(true);
     setSubmitError(null);
     try {
-      await signIn(usuario, password);
+      await signIn(email.trim().toLowerCase(), password);
     } catch (e) {
-      if (e.status === 401) {
-        setSubmitError(e);
-      } else if (e.status === 429) {
-        Alert.alert('Bloqueado', `Demasiados intentos. Reintenta en ${e.retryAfter || '?'}s.`);
-        setSubmitError(e);
-      } else {
-        setSubmitError(e);
-      }
+      setSubmitError(e);
     } finally {
       setLoading(false);
     }
@@ -75,82 +57,116 @@ export default function Login() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F7F8FC" />
+      <View style={styles.ambientGlow} pointerEvents="none" />
+      <View style={styles.ambientGlowSoft} pointerEvents="none" />
 
-      <View style={styles.ambientGlow} />
-
-      <View style={styles.content}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + 18, paddingBottom: insets.bottom + 22 },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <Image
             source={require('../../assets/logo.png')}
             style={styles.logo}
             resizeMode="contain"
           />
+          <Text style={styles.title}>Bienvenido de nuevo</Text>
           <Text style={styles.subtitle}>
-            Acompañamiento escolar y seguimiento preventivo
+            Tus notas, asistencia y avisos del colegio, en un solo lugar.
           </Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.inputLabel}>Correo Institucional</Text>
-          <TextInput
+          <Text style={styles.inputLabel}>Correo institucional</Text>
+          <View
             style={[
-              styles.input,
-              isUserFocused && styles.inputFocused,
-              errors.usuario && styles.inputError,
+              styles.inputRow,
+              focus === 'email' && styles.inputRowFocused,
+              errors.email && styles.inputRowError,
             ]}
-            placeholder="ej. nombre@educa360.pe"
-            placeholderTextColor="#94A3B8"
-            value={usuario}
-            onChangeText={(text) => {
-              setUsuario(text);
-              if (errors.usuario) validateField('usuario', text);
-            }}
-            onFocus={() => setIsUserFocused(true)}
-            onBlur={() => {
-              setIsUserFocused(false);
-              validateField('usuario', usuario);
-            }}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="email-address"
-          />
-          {errors.usuario && (
-            <Text style={styles.errorText}>{errors.usuario}</Text>
-          )}
+          >
+            <Ionicons
+              name="mail-outline"
+              size={18}
+              color={focus === 'email' ? '#5F348F' : '#94A3B8'}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="nombre@educa360.pe"
+              placeholderTextColor="#94A3B8"
+              value={email}
+              onChangeText={(text) => {
+                setEmail(text);
+                if (errors.email) setErrors((prev) => ({ ...prev, email: null }));
+              }}
+              onFocus={() => setFocus('email')}
+              onBlur={() => {
+                setFocus(null);
+                validateEmail(email);
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              textContentType="emailAddress"
+              autoComplete="email"
+            />
+          </View>
+          {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
 
           <Text style={[styles.inputLabel, { marginTop: 16 }]}>Contraseña</Text>
-          <TextInput
+          <View
             style={[
-              styles.input,
-              isPasswordFocused && styles.inputFocused,
-              errors.password && styles.inputError,
+              styles.inputRow,
+              focus === 'password' && styles.inputRowFocused,
+              errors.password && styles.inputRowError,
             ]}
-            placeholder="••••••••••••"
-            placeholderTextColor="#94A3B8"
-            secureTextEntry
-            value={password}
-            onChangeText={(text) => {
-              setPassword(text);
-              if (errors.password) validateField('password', text);
-            }}
-            onFocus={() => setIsPasswordFocused(true)}
-            onBlur={() => {
-              setIsPasswordFocused(false);
-              validateField('password', password);
-            }}
-          />
-          {errors.password && (
-            <Text style={styles.errorText}>{errors.password}</Text>
-          )}
+          >
+            <Ionicons
+              name="lock-closed-outline"
+              size={18}
+              color={focus === 'password' ? '#5F348F' : '#94A3B8'}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="••••••••"
+              placeholderTextColor="#94A3B8"
+              secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                if (errors.password) setErrors((prev) => ({ ...prev, password: null }));
+              }}
+              onFocus={() => setFocus('password')}
+              onBlur={() => setFocus(null)}
+              textContentType="password"
+              autoComplete="password"
+            />
+            <TouchableOpacity
+              onPress={() => setShowPassword((prev) => !prev)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            >
+              <Ionicons
+                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                size={19}
+                color="#94A3B8"
+              />
+            </TouchableOpacity>
+          </View>
+          {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
 
           {submitError ? <ErrorCard error={submitError} /> : null}
 
           <CosmicButton
-            title="Ingresar a la Plataforma"
+            title="Ingresar a la plataforma"
             onPress={handleLogin}
             loading={loading}
           />
@@ -159,15 +175,37 @@ export default function Login() {
             style={styles.helpButton}
             onPress={() =>
               Alert.alert(
-                'Recuperación de Acceso',
-                'Comunícate con el área de soporte tecnológico.'
+                'Recuperación de acceso',
+                'Comunícate con el área de soporte del colegio para recuperar tu contraseña institucional.'
               )
             }
           >
-            <Text style={styles.helpText}>¿Olvidaste tu contraseña institucional?</Text>
+            <Text style={styles.helpText}>¿Olvidaste tu contraseña?</Text>
           </TouchableOpacity>
         </View>
-      </View>
+
+        <View style={styles.roleRow}>
+          <View style={styles.roleChip}>
+            <Ionicons name="school-outline" size={13} color="#5F348F" />
+            <Text style={styles.roleChipText}>Estudiante</Text>
+          </View>
+          <View style={styles.roleChip}>
+            <Ionicons name="people-outline" size={13} color="#5F348F" />
+            <Text style={styles.roleChipText}>Apoderado</Text>
+          </View>
+          <View style={styles.roleChip}>
+            <Ionicons name="easel-outline" size={13} color="#5F348F" />
+            <Text style={styles.roleChipText}>Docente</Text>
+          </View>
+        </View>
+
+        <Text style={styles.webNote}>
+          La gestión administrativa se realiza en la versión web.
+        </Text>
+        <Text style={styles.footer}>
+          Educa360 · Colegio Nuestra Señora de Monserrat
+        </Text>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }

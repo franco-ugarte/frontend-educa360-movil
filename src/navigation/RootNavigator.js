@@ -1,71 +1,40 @@
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../state/AuthContext';
-
 import LoginScreen from '../pages/Login';
-import AlumnoPage from '../pages/AlumnoPage';
-import ProfesorPage from '../pages/ProfesorPage';
-import PadrePage from '../pages/PadrePage';
-import SecretariaPage from '../pages/SecretariaPage';
-import AdminPage from '../pages/AdminPage';
+import EstudiantePage from '../pages/estudiante/page';
+import ApoderadoPage from '../pages/apoderado/page';
+import DocentePage from '../pages/docente/page';
+import WebOnlyPage from '../pages/WebOnlyPage';
+import { colors } from '../theme';
 
 const Stack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator();
 
-function tabIcon(name, outline) {
-  return ({ color, size, focused }) => (
-    <Ionicons name={focused ? name : outline || name} size={size} color={color} />
-  );
-}
-
-const TAB_STYLE = {
-  headerShown: false,
-  tabBarActiveTintColor: '#5F348F',
-  tabBarInactiveTintColor: '#94A3B8',
-  // Oculta la barra del Tab navigator: cada dashboard ya trae su propio
-  // dock interno (GradientButtonGroup) y la barra externa duplicaba el label.
-  // Stack + Tab siguen existiendo en la jerarquía (requisito 6).
-  tabBarStyle: { display: 'none' },
+const navTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: colors.primary,
+    background: colors.bg,
+    card: colors.surface,
+    text: colors.text,
+    border: colors.line,
+  },
 };
 
-function AlumnoTabs() {
-  return (
-    <Tab.Navigator screenOptions={TAB_STYLE}>
-      <Tab.Screen name="Alumno" component={AlumnoPage} options={{ title: 'Mi panel', tabBarIcon: tabIcon('home', 'home-outline') }} />
-    </Tab.Navigator>
-  );
-}
-
-function RoleTabs({ rol }) {
-  if (rol === 'admin')
-    return (
-      <Tab.Navigator screenOptions={TAB_STYLE}>
-        <Tab.Screen name="Admin" component={AdminPage} options={{ title: 'Panel', tabBarIcon: tabIcon('grid', 'grid-outline') }} />
-      </Tab.Navigator>
-    );
-  if (rol === 'secretaria')
-    return (
-      <Tab.Navigator screenOptions={TAB_STYLE}>
-        <Tab.Screen name="Secretaria" component={SecretariaPage} options={{ title: 'Registro', tabBarIcon: tabIcon('clipboard', 'clipboard-outline') }} />
-      </Tab.Navigator>
-    );
-  if (rol === 'profesor')
-    return (
-      <Tab.Navigator screenOptions={TAB_STYLE}>
-        <Tab.Screen name="Profesor" component={ProfesorPage} options={{ title: 'Portal', tabBarIcon: tabIcon('book', 'book-outline') }} />
-      </Tab.Navigator>
-    );
-  if (rol === 'padre')
-    return (
-      <Tab.Navigator screenOptions={TAB_STYLE}>
-        <Tab.Screen name="Padre" component={PadrePage} options={{ title: 'Hijos', tabBarIcon: tabIcon('people', 'people-outline') }} />
-      </Tab.Navigator>
-    );
-  return <AlumnoTabs />;
+function RoleScreen({ rol }) {
+  switch (rol) {
+    case 'estudiante':
+      return <EstudiantePage />;
+    case 'apoderado':
+      return <ApoderadoPage />;
+    case 'docente':
+      return <DocentePage />;
+    default:
+      return <WebOnlyPage />;
+  }
 }
 
 export default function RootNavigator() {
@@ -73,18 +42,18 @@ export default function RootNavigator() {
 
   if (status === 'loading') {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color="#5F348F" />
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navTheme}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
           <Stack.Screen name="Main">
-            {() => <RoleTabs rol={appRol} />}
+            {() => <RoleScreen rol={appRol} />}
           </Stack.Screen>
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} />
@@ -93,3 +62,12 @@ export default function RootNavigator() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.bg,
+  },
+});

@@ -1,20 +1,49 @@
 {
   "expo": {
-    "name": "educa360-app",
+    "name": "Educa360",
     "slug": "educa360-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./assets/logo.png",
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE"
-      }
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#5F348F"
+      },
+      "predictiveBackGestureEnabled": false
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/logo.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#5F348F"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Educa360 usa tus fotos para adjuntar el sustento de una justificación.",
+          "cameraPermission": "Educa360 usa la cámara para fotografiar el sustento de una justificación.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#5F348F",
+          "defaultChannel": "default"
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-status-bar"
     ]
   }
 }
