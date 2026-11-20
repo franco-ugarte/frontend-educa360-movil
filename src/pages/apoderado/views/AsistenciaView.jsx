@@ -11,10 +11,11 @@ import SectionTitle from '../../../components/ui/SectionTitle';
 import LoadingView from '../../../components/ui/LoadingView';
 import ErrorCard from '../../../components/ui/ErrorCard';
 import EmptyState from '../../../components/ui/EmptyState';
+import AsistenciaHistorial from '../../../components/domain/AsistenciaHistorial';
 import { estadoTone } from '../components/TicketCard';
 import { styles } from '../styles';
-import { asistenciaTone, colors } from '../../../theme';
-import { diaMes, fechaCorta, hora, porcentaje } from '../../../utils/format';
+import { colors } from '../../../theme';
+import { fechaCorta, porcentaje } from '../../../utils/format';
 
 export default function AsistenciaView({ onJustificar, onGoJustificaciones, onOpenHorario }) {
   const { hijos, hijo, selectChild, childBimestres, tickets } = useApoderadoData();
@@ -61,6 +62,56 @@ export default function AsistenciaView({ onJustificar, onGoJustificaciones, onOp
           t.fechaInasistencia === item.fecha &&
           (t.bloqueId == null || t.bloqueId === item.bloqueId)
       ) || null
+    );
+  };
+
+  const renderAcciones = (item) => {
+    if (item.estado !== 'FALTA') return null;
+    const ticket = ticketDe(item);
+    const ticketTone = ticket ? estadoTone(ticket.estado) : null;
+
+    if (ticket) {
+      return (
+        <>
+          <Text style={styles.attTicketText} numberOfLines={1}>
+            Ticket {ticketTone.label.toLowerCase()} ·{' '}
+            {fechaCorta(ticket.fechaInasistencia)}
+          </Text>
+          <TouchableOpacity
+            style={styles.attJustifyBtn}
+            activeOpacity={0.85}
+            onPress={onGoJustificaciones}
+          >
+            <Ionicons
+              name="document-text-outline"
+              size={13}
+              color="#FFFFFF"
+            />
+            <Text style={styles.attJustifyText}>Ver ticket</Text>
+          </TouchableOpacity>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <Text style={styles.attTicketText} numberOfLines={1}>
+          Falta sin justificar
+        </Text>
+        <TouchableOpacity
+          style={styles.attJustifyBtn}
+          activeOpacity={0.85}
+          onPress={() =>
+            onJustificar({
+              fecha: item.fecha,
+              bloqueId: item.bloqueId,
+            })
+          }
+        >
+          <Ionicons name="create-outline" size={13} color="#FFFFFF" />
+          <Text style={styles.attJustifyText}>Justificar</Text>
+        </TouchableOpacity>
+      </>
     );
   };
 
@@ -160,7 +211,7 @@ export default function AsistenciaView({ onJustificar, onGoJustificaciones, onOp
             </View>
 
             <View style={styles.section}>
-              <SectionTitle title="Historial" />
+              <SectionTitle title="Historial por día" />
               {detalle.length === 0 ? (
                 <EmptyState
                   icon="calendar-outline"
@@ -168,93 +219,7 @@ export default function AsistenciaView({ onJustificar, onGoJustificaciones, onOp
                   hint="Los docentes aún no han registrado asistencia en este período."
                 />
               ) : (
-                detalle.map((item) => {
-                  const tone = asistenciaTone[item.estado] || {
-                    bg: colors.surfaceAlt,
-                    text: colors.muted,
-                    label: item.estado || '—',
-                  };
-                  const fecha = diaMes(item.fecha);
-                  const ticket = item.estado === 'FALTA' ? ticketDe(item) : null;
-                  const ticketTone = ticket ? estadoTone(ticket.estado) : null;
-
-                  return (
-                    <View key={item.id} style={styles.attItem}>
-                      <View style={styles.attRow}>
-                        <View style={styles.attDateBox}>
-                          <Text style={styles.attDay}>{fecha.day}</Text>
-                          <Text style={styles.attMonth}>{fecha.month}</Text>
-                        </View>
-                        <View style={styles.attInfo}>
-                          <Text style={styles.attMateria} numberOfLines={1}>
-                            {item.materiaNombre}
-                          </Text>
-                          <Text style={styles.attTime}>
-                            {hora(item.horaInicio)} – {hora(item.horaFin)}
-                          </Text>
-                          {item.observacion ? (
-                            <Text style={styles.attObs} numberOfLines={2}>
-                              {item.observacion}
-                            </Text>
-                          ) : null}
-                        </View>
-                        <View style={[styles.statusPill, { backgroundColor: tone.bg }]}>
-                          <Text style={[styles.attStatusText, { color: tone.text }]}>
-                            {tone.label}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {item.estado === 'FALTA' ? (
-                        <View style={styles.attActions}>
-                          {ticket ? (
-                            <>
-                              <Text style={styles.attTicketText} numberOfLines={1}>
-                                Ticket {ticketTone.label.toLowerCase()} ·{' '}
-                                {fechaCorta(ticket.fechaInasistencia)}
-                              </Text>
-                              <TouchableOpacity
-                                style={styles.attJustifyBtn}
-                                activeOpacity={0.85}
-                                onPress={onGoJustificaciones}
-                              >
-                                <Ionicons
-                                  name="document-text-outline"
-                                  size={13}
-                                  color="#FFFFFF"
-                                />
-                                <Text style={styles.attJustifyText}>Ver ticket</Text>
-                              </TouchableOpacity>
-                            </>
-                          ) : (
-                            <>
-                              <Text style={styles.attTicketText} numberOfLines={1}>
-                                Falta sin justificar
-                              </Text>
-                              <TouchableOpacity
-                                style={styles.attJustifyBtn}
-                                activeOpacity={0.85}
-                                onPress={() =>
-                                  onJustificar({
-                                    fecha: item.fecha,
-                                    bloqueId: item.bloqueId,
-                                  })
-                                }
-                              >
-                                <Ionicons
-                                  name="create-outline"
-                                  size={13}
-                                  color="#FFFFFF"
-                                />
-                                <Text style={styles.attJustifyText}>Justificar</Text>
-                              </TouchableOpacity>
-                            </>
-                          )}
-                        </View>
-                      ) : null}
-                    </View>
-                  );
-                })
+                <AsistenciaHistorial items={detalle} renderAcciones={renderAcciones} />
               )}
             </View>
 

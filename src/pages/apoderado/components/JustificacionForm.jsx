@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { diaSemana, fechaCorta, hora, toApiDate } from '../../../utils/format';
 import {
   MAX_SUSTENTO_BYTES,
   elegirImagen,
+  elegirPdf,
   formDataDeSustento,
 } from '../adjunto';
 import { styles } from '../styles';
@@ -35,12 +36,30 @@ function fechaDesdeApi(text) {
 function mensajeDeError(e) {
   if (!e) return 'No se pudo registrar la justificación.';
   if (e.status === 409) {
-    return 'Ya existe una justificación activa para esa fecha o bloque. Revisa el historial.';
+    return 'Ya existe una justificación activa para esa fecha o bloque. Revisa el historial de este hijo.';
   }
   if (e.status === 404) {
     return 'La fecha elegida no tiene matrícula o bloque válido para este hijo.';
   }
   return e.message || 'No se pudo registrar la justificación.';
+}
+
+/** Activos que realmente chocan con la fecha y el alcance elegidos. */
+function conflictosEn(lista, apiFecha, bloqueId) {
+  return (lista || []).filter(
+    (t) =>
+      t.estado !== 'RECHAZADO' &&
+      t.fechaInasistencia === apiFecha &&
+      (bloqueId == null || t.bloqueId == null || t.bloqueId === bloqueId)
+  );
+}
+
+function mensajeConflicto(conflictos, fecha) {
+  const diaCompleto = conflictos.some((t) => t.bloqueId == null);
+  const aprobada = conflictos.some((t) => t.estado === 'APROBADO');
+  return `Ya existe una justificación ${aprobada ? 'aprobada' : 'pendiente'} para el ${fechaCorta(
+    fecha
+  )} (${diaCompleto ? 'día completo' : 'ese bloque'}). Está en el historial de este hijo.`;
 }
 
 /**
@@ -58,6 +77,7 @@ export default function JustificacionForm({
   onConsumePrefill,
   onCreated,
   onSuccess,
+  onRefreshTickets,
 }) {
   const [fecha, setFecha] = useState(hoySinHora);
   const [bloqueId, setBloqueId] = useState(null);
@@ -66,6 +86,7 @@ export default function JustificacionForm({
   const [showPicker, setShowPicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const enviandoRef = useRef(false);
 
   const apiFecha = toApiDate(fecha);
 
@@ -130,8 +151,9 @@ export default function JustificacionForm({
 
   const agregarAdjunto = (asset) => {
     if (!asset) return;
-    if (asset.fileSize && asset.fileSize > MAX_SUSTENTO_BYTES) {
-      setError('La imagen supera los 5 MB. Elige una más liviana.');
+    const bytes = asset.fileSize ?? asset.size ?? 0;
+    if (bytes > MAX_SUSTENTO_BYTES) {
+      setError('El archivo supera los 5 MB. Elige uno más liviano.');
       return;
     }
     setError(null);
@@ -141,10 +163,13 @@ export default function JustificacionForm({
   const elegir = async (origen) => {
     setError(null);
     try {
-      const asset = await elegirImagen(origen);
+      const asset =
+        origen === 'pdf' ? await elegirPdf() : await elegirImagen(origen);
       if (asset) agregarAdjunto(asset);
     } catch (e) {
-      setError(e?.message || 'No se pudo abrir la cámara o la galería.');
+      setError(
+        e?.message || 'No se pudo abrir la cámara, la galería o el selector de archivos.'
+      );
     }
   };
 
@@ -152,6 +177,9 @@ export default function JustificacionForm({
   const sinMatricula = !hijo?.seccionEtiqueta;
   const retirado = hijo?.situacionFinal === 'RETIRADO';
   const bloqueadoPorMatricula = sinMatricula || retirado;
+  const adjuntoEsPdf = /pdf/i.test(
+    `${adjunto?.mimeType || ''} ${adjunto?.name || ''} ${adjunto?.fileName || ''}`
+  );
 
   const enviar = async () => {
     if (!hijo || saving) return;
@@ -200,9 +228,10 @@ export default function JustificacionForm({
           onCreated?.(actualizado || ticket);
           mensaje =
             'Justificación registrada con su sustento. Secretaría la revisará.';
-        } catch {
-          mensaje =
-            'Justificación registrada, pero no se pudo subir la imagen. Puedes adjuntarla desde la lista.';
+        } catch (e) {
+          mensaje = e?.message
+            ? `Justificación registrada, pero no se pudo subir el archivo: ${e.message}`
+            : 'Justificación registrada, pero no se pudo subir el archivo. Puedes adjuntarlo desde la lista.';
         }
       }
 
@@ -419,30 +448,49 @@ export default function JustificacionForm({
               <Ionicons name="images-outline" size={17} color={colors.primary} />
               <Text style={styles.attachBtnText}>Galería</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.attachBtn}
+              activeOpacity={0.85}
+              disabled={saving}
+              onPress={() => elegir('pdf')}
+            >
+              <Ionicons name="document-outline" size={17} color={colors.primary} />
+              <Text style={styles.attachBtnText}>PDF</Text>
+            </TouchableOpacity>
           </View>
 
           {adjunto ? (
             <View style={styles.attachPreview}>
-              <Image source={{ uri: adjunto.uri }} style={styles.attachImage} />
+              {adjuntoEsPdf ? (
+                <View style={[styles.attachImage, styles.attachPdfBox]}>
+                  <Ionicons
+                    name="document-text-outline"
+                    size={26}
+                    color={colors.primary}
+                  />
+                </View>
+              ) : (
+                <Image source={{ uri: adjunto.uri }} style={styles.attachImage} />
+              )}
               <View style={styles.attachFileBox}>
                 <Text style={styles.attachFileName} numberOfLines={1}>
-                  {adjunto.fileName || 'Imagen seleccionada'}
+                  {adjunto.fileName || adjunto.name || 'Archivo seleccionado'}
                 </Text>
                 <Text style={styles.attachFileHint}>
-                  Se adjuntará al ticket · máx. 5 MB
+                  {adjuntoEsPdf ? 'PDF adjunto' : 'Se adjuntará al ticket'} · máx. 5 MB
                 </Text>
               </View>
               <TouchableOpacity
                 style={styles.attachRemove}
                 onPress={() => setAdjunto(null)}
-                accessibilityLabel="Quitar imagen"
+                accessibilityLabel="Quitar archivo"
               >
                 <Ionicons name="close" size={16} color={colors.danger} />
               </TouchableOpacity>
             </View>
           ) : (
             <Text style={styles.attachFileHint}>
-              Foto de la receta o constancia (JPG o PNG, máx. 5 MB).
+              Foto o PDF de la receta o constancia (JPG, PNG o PDF, máx. 5 MB).
             </Text>
           )}
 

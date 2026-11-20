@@ -1,0 +1,155 @@
+import { StyleSheet } from 'react-native';
+import { colors, radius, shadowSoft } from '../../theme';
+
+export const styles = StyleSheet.create({
+  grupo: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    marginBottom: 10,
+    overflow: 'hidden',
+    ...shadowSoft,
+  },
+  cabecera: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  cabeceraPressed: {
+    backgroundColor: colors.surfaceAlt,
+  },
+  fechaBox: {
+    width: 48,
+    height: 54,
+    borderRadius: radius.md,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fechaDia: {
+    fontSize: 20,
+    lineHeight: 23,
+    fontWeight: '900',
+    color: colors.primary,
+  },
+  fechaMes: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.primaryMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  cabeceraInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  titulo: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  subtitulo: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+    marginTop: 5,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: radius.pill,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  chipPunto: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  chipTexto: {
+    fontSize: 9.5,
+    fontWeight: '800',
+  },
+  chevron: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chevronAbierto: {
+    backgroundColor: colors.primarySoft,
+  },
+  detalle: {
+    borderTopWidth: 1,
+    borderTopColor: colors.lineSoft,
+    paddingHorizontal: 12,
+    paddingTop: 4,
+    paddingBottom: 12,
+  },
+  fila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 9,
+  },
+  punto: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 2,
+    alignSelf: 'flex-start',
+  },
+  filaInfo: {
+    flex: 1,
+  },
+  materia: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  hora: {
+    fontSize: 10.5,
+    fontWeight: '500',
+    color: colors.muted,
+    marginTop: 2,
+  },
+  observacion: {
+    fontSize: 10.5,
+    color: colors.muted,
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  pill: {
+    borderRadius: radius.pill,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  pillText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+  },
+  acciones: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 4,
+  },
+});

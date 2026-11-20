@@ -8,9 +8,9 @@ import SectionTitle from '../../../components/ui/SectionTitle';
 import LoadingView from '../../../components/ui/LoadingView';
 import ErrorCard from '../../../components/ui/ErrorCard';
 import EmptyState from '../../../components/ui/EmptyState';
+import AsistenciaHistorial from '../../../components/domain/AsistenciaHistorial';
 import { styles } from '../styles';
-import { asistenciaTone, colors } from '../../../theme';
-import { diaMes, hora, porcentaje } from '../../../utils/format';
+import { porcentaje } from '../../../utils/format';
 
 export default function AsistenciaView() {
   const { bimestres } = useStudentData();
@@ -115,7 +115,7 @@ export default function AsistenciaView() {
             </View>
 
             <View style={styles.section}>
-              <SectionTitle title="Historial" />
+              <SectionTitle title="Historial por día" />
               {detalle.length === 0 ? (
                 <EmptyState
                   icon="calendar-outline"
@@ -123,38 +123,7 @@ export default function AsistenciaView() {
                   hint="Tus docentes aún no han registrado asistencia en este período."
                 />
               ) : (
-                detalle.map((item) => {
-                  const tone = asistenciaTone[item.estado] || {
-                    bg: colors.surfaceAlt,
-                    text: colors.muted,
-                    label: item.estado || '—',
-                  };
-                  const fecha = diaMes(item.fecha);
-                  return (
-                    <View key={item.id} style={styles.attRow}>
-                      <View style={styles.attDateBox}>
-                        <Text style={styles.attDay}>{fecha.day}</Text>
-                        <Text style={styles.attMonth}>{fecha.month}</Text>
-                      </View>
-                      <View style={styles.attInfo}>
-                        <Text style={styles.attMateria} numberOfLines={1}>
-                          {item.materiaNombre}
-                        </Text>
-                        <Text style={styles.attTime}>
-                          {hora(item.horaInicio)} – {hora(item.horaFin)}
-                        </Text>
-                        {item.observacion ? (
-                          <Text style={styles.attObs} numberOfLines={2}>
-                            {item.observacion}
-                          </Text>
-                        ) : null}
-                      </View>
-                      <View style={[styles.statusPill, { backgroundColor: tone.bg }]}>
-                        <Text style={[styles.attStatusText, { color: tone.text }]}>{tone.label}</Text>
-                      </View>
-                    </View>
-                  );
-                })
+                <AsistenciaHistorial items={detalle} />
               )}
             </View>
 

@@ -14,6 +14,7 @@ import { subirSustento, urlSustento } from '../../../api/apoderado';
 import {
   MAX_SUSTENTO_BYTES,
   elegirImagen,
+  elegirPdf,
   formDataDeSustento,
 } from '../adjunto';
 import ChildPicker from '../components/ChildPicker';
@@ -42,7 +43,7 @@ function mensajeSustento(e, accion) {
     return 'El sustento ya no está disponible.';
   }
   if (e.status === 400) {
-    return e.message || 'El archivo no es válido (JPG o PNG, máx. 5 MB).';
+    return e.message || 'El archivo no es válido (JPG, PNG o PDF, máx. 5 MB).';
   }
   return e.message || `No se pudo ${accion} el sustento.`;
 }
@@ -119,10 +120,12 @@ export default function JustificacionesView({ prefill, onConsumePrefill }) {
     setActionError(null);
     setNotice(null);
     try {
-      const asset = await elegirImagen(origen);
+      const asset =
+        origen === 'pdf' ? await elegirPdf() : await elegirImagen(origen);
       if (!asset) return;
-      if (asset.fileSize && asset.fileSize > MAX_SUSTENTO_BYTES) {
-        setActionError('La imagen supera los 5 MB. Elige una más liviana.');
+      const bytes = asset.fileSize ?? asset.size ?? 0;
+      if (bytes > MAX_SUSTENTO_BYTES) {
+        setActionError('El archivo supera los 5 MB. Elige uno más liviano.');
         return;
       }
       setBusyId(ticket.id);

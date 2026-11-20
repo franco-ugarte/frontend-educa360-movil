@@ -180,15 +180,19 @@ export function ApoderadoDataProvider({ children }) {
     return result.ok ? result.value?.noLeidas ?? 0 : null;
   }, []);
 
+  /**
+   * Refresca el historial del hijo activo y devuelve la lista fresca (o
+   * `false` si falló). El formulario la usa para validar duplicados contra el
+   * servidor y no contra datos viejos de memoria.
+   */
   const refreshTickets = useCallback(async () => {
     const id = selectedIdRef.current;
     if (!id) return false;
     const result = await settle(api.ticketsHijo(id));
     if (result.ok && mounted.current && selectedIdRef.current === id) {
-      setChildData((prev) =>
-        prev ? { ...prev, tickets: result.value || [] } : prev
-      );
-      return true;
+      const lista = result.value || [];
+      setChildData((prev) => (prev ? { ...prev, tickets: lista } : prev));
+      return lista;
     }
     return false;
   }, []);
@@ -196,6 +200,11 @@ export function ApoderadoDataProvider({ children }) {
   /** Inserta o reemplaza un ticket (creado o con sustento) en el historial. */
   const upsertTicket = useCallback((ticket) => {
     if (!ticket) return;
+    // Evita mezclar tickets de un hijo si la respuesta llega después de cambiar
+    // de hijo en el selector.
+    if (ticket.estudianteId != null && ticket.estudianteId !== selectedIdRef.current) {
+      return;
+    }
     setChildData((prev) => {
       if (!prev) return prev;
       const list = prev.tickets || [];

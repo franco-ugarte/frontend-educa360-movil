@@ -10,7 +10,7 @@ servidor y el móvil solo la presenta y ejecuta las acciones propias del celular
 |---|---|
 | **Roles** | Estudiante · Apoderado · Docente (Admin y Secretaría ven un aviso de uso web) |
 | **Stack** | Expo SDK 58 · React Native 0.88 · React 19 · React Navigation 7 |
-| **Nativas** | Cámara/galería · Notificaciones locales · Selector de fecha · AsyncStorage |
+| **Nativas** | Cámara/galería · Selector de PDF · Notificaciones locales · Selector de fecha · AsyncStorage |
 | **Identidad** | Morado `#5F348F`, ámbar `#F9B201` y `assets/logo.png` |
 
 ---
@@ -50,7 +50,7 @@ desde el celular:
 
 - **Consultar** el día del estudiante: clases, promedio con semáforo, notas por
   bimestre, asistencia y comunicados.
-- **Justificar** una inasistencia con una foto del sustento, sin ir al colegio.
+- **Justificar** una inasistencia con una foto o un PDF del sustento, sin ir al colegio.
 - **Pasar lista** por bloque y **publicar un aviso express** desde el aula.
 
 Todo lo administrativo (matrículas, planificación, materiales, actas, cierres,
@@ -61,7 +61,7 @@ descargas) queda en la versión web: el móvil no intenta replicarlo.
 | Rol | Navegación | Qué hace |
 |---|---|---|
 | **Estudiante** | Inicio · Horario · Notas · Asistencia · Perfil | Clases del día, semana, promedios con **semáforo**, asistencia con porcentaje, comunicados, bandeja de notificaciones y recordatorios locales. |
-| **Apoderado** | Inicio · Notas · Asistencia · Justificar · Perfil | Cambia entre hijos, revisa notas/asistencia/horario y **registra justificaciones con cámara o galería**, siguiendo el estado de cada ticket. |
+| **Apoderado** | Inicio · Notas · Asistencia · Justificar · Perfil | Cambia entre hijos, revisa notas/asistencia/horario y **registra justificaciones con cámara, galería o PDF**, siguiendo el estado de cada ticket. |
 | **Docente** | Inicio · Horario · Asistencia · Avisos · Perfil | Su semana completa con filtro por curso, **pase de lista por bloque y fecha**, avance del día y **avisos express** de una sección. |
 | **Admin / Secretaría** | Aviso de rol | Explica que la gestión se realiza en la web y permite cambiar de cuenta. |
 
@@ -77,7 +77,7 @@ pestaña: la barra inferior se mantiene en cinco accesos por rol.
 | Navegación | React Navigation 7 (`native-stack` para sesión + tab bar propia por rol) |
 | Red | `fetch` nativo envuelto en un cliente único con JWT, timeouts y errores normalizados |
 | Persistencia | `@react-native-async-storage/async-storage` 2.2.0 |
-| Nativas | `expo-image-picker`, `expo-notifications`, `@react-native-community/datetimepicker` |
+| Nativas | `expo-image-picker`, `expo-document-picker`, `expo-file-system`, `expo-notifications`, `@react-native-community/datetimepicker` |
 | Backend | Spring Boot · PostgreSQL · JWT (24 h) · Flyway |
 
 ## Requisitos
@@ -182,7 +182,8 @@ roles sin configurar nada.
 - **Notas**: filtro por bimestre, promedio por curso y por criterio, leyenda del
   semáforo y colores por nota.
 - **Asistencia**: porcentaje del periodo, resumen (asistencias, faltas,
-  tardanzas, justificadas) e historial por fecha.
+  tardanzas, justificadas) e historial **agrupado por día**: cada día muestra su
+  resumen y se despliega para ver los cursos.
 - **Perfil**: datos de la cuenta, teléfonos en modo lectura (los gestiona su
   apoderado), recordatorios locales y cierre de sesión.
 - **Overlays**: comunicados y bandeja de notificaciones.
@@ -192,9 +193,10 @@ roles sin configurar nada.
 - **Inicio**: selector de hijo, resumen académico con semáforo, clases del día y
   accesos a notas/asistencia/justificar.
 - **Notas y Asistencia**: idénticas a las del estudiante, siempre del hijo
-  seleccionado.
+  seleccionado. En la asistencia, cada falta permite **justificar** o abrir su
+  ticket sin salir del día desplegado.
 - **Justificar**: formulario con fecha (selector nativo), alcance día completo o
-  bloque, motivo y **sustento fotográfico**; historial de tickets con estado.
+  bloque, motivo y **sustento fotográfico o PDF**; historial de tickets con estado.
 - **Horario del hijo**: overlay desde Inicio o Asistencia (no ocupa pestaña).
 - **Perfil**: teléfonos editables (máx. 5), recordatorios del hijo activo y
   cierre de sesión.
@@ -307,6 +309,7 @@ Se aplica en **Inicio** (promedio del estudiante y del hijo) y en **Notas**
 | Funcionalidad | Implementación | Detalle |
 |---|---|---|
 | **Cámara y galería** | `expo-image-picker` | Solo imágenes, edición y compresión `0.7`; se valida **máx. 5 MB** antes de subir |
+| **Selector de PDF** | `expo-document-picker` | Sustento en PDF (máx. 5 MB), copiado a caché para poder subirlo |
 | **Notificaciones locales** | `expo-notifications` | Canal Android `recordatorios`, programación semanal y notificación de prueba |
 | **Selector de fecha** | `@react-native-community/datetimepicker` | Nativo en **Justificar** (apoderado) y en **Asistencia** (docente) |
 | **Almacenamiento local** | `AsyncStorage` | Sesión, token push y preferencia de recordatorios |
@@ -469,7 +472,7 @@ DELETE /notificaciones/dispositivos?token=
   `RECHAZADO` no bloquea.
 - Si la matrícula está `RETIRADA` o no hay matrícula vigente, el formulario avisa
   y deshabilita el registro.
-- El sustento es opcional (**imagen, máx. 5 MB**) y solo se puede subir o
+- El sustento es opcional (**JPG, PNG o PDF, máx. 5 MB**) y solo se puede subir o
   reemplazar mientras el ticket está `PENDIENTE`.
 
 ### Horarios
@@ -502,14 +505,13 @@ no automatiza el alta múltiple. Solo se editan o eliminan los avisos propios.
   funcionan en Expo Go.
 - **Entrega inmediata**: la app refresca cada 60 s; el backend ya expone STOMP
   (`/ws`) y queda como mejora suscribirse para latencia de menos de un segundo.
-- **Sustento en PDF**: el móvil ofrece solo imágenes; adjuntar PDF requiere
-  `expo-document-picker` o hacerlo desde la web.
 - **Zona horaria**: el backend envía `LocalDateTime` sin offset. Si el
   contenedor corre en UTC, la hora de la bandeja se muestra en UTC (5 h de
   diferencia en Perú). Se corrige con `TZ=America/Lima` en el compose o
   migrando a `timestamptz`.
-- **Formato del sustento**: se valida el tamaño (5 MB), no el MIME; el selector
-  acepta cualquier imagen que ofrezca el sistema.
+- **Formato del sustento**: se aceptan JPG, PNG o PDF hasta 5 MB. La app valida
+  extensión y tamaño antes de enviar, y el backend vuelve a validar MIME y
+  extensión.
 
 ## Pruebas y validaciones
 

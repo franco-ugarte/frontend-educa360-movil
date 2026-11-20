@@ -132,6 +132,12 @@ export default function TicketCard({
                 onPress={() => onAttach(ticket, 'library')}
                 disabled={disabled}
               />
+              <MiniButton
+                icon="document-outline"
+                label="PDF"
+                onPress={() => onAttach(ticket, 'pdf')}
+                disabled={disabled}
+              />
             </>
           ) : null}
         </View>
