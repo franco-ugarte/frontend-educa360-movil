@@ -9,6 +9,10 @@ import {
   eliminarPushToken,
   registrarPushToken,
 } from '../services/push';
+import {
+  conectarRealtime,
+  desconectarRealtime,
+} from '../services/realtime';
 
 // Una sola máquina de sesión: { status, user, perfil, token, error }.
 const initial = { status: 'loading', user: null, perfil: null, token: null, error: null };
@@ -73,6 +77,7 @@ export function AuthProvider({ children }) {
         });
         // Con token vivo se intenta registrar el dispositivo (silencioso).
         registrarPushToken();
+        conectarRealtime({ rol: fresh.usuario?.rol }).catch(() => {});
       } catch (e) {
         // Token vencido: se limpia la sesión para no entrar con credenciales muertas.
         if (e?.status === 401 || e?.status === 403) {
@@ -89,6 +94,7 @@ export function AuthProvider({ children }) {
   useEffect(
     () =>
       onUnauthorized(async () => {
+        desconectarRealtime();
         await eliminarPushToken();
         await clearSession();
         dispatch({ type: 'LOGOUT' });
@@ -111,6 +117,7 @@ export function AuthProvider({ children }) {
           }
           dispatch({ type: 'LOGIN_OK', user: data.user, perfil, token: data.token });
           registrarPushToken();
+          conectarRealtime({ rol: data.user?.rol }).catch(() => {});
           return data;
         } catch (e) {
           dispatch({ type: 'LOGIN_FAIL', error: e });
@@ -118,6 +125,7 @@ export function AuthProvider({ children }) {
         }
       },
       signOut: async () => {
+        desconectarRealtime();
         await eliminarPushToken();
         await clearSession();
         dispatch({ type: 'LOGOUT' });

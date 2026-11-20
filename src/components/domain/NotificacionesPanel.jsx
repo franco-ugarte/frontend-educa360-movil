@@ -9,6 +9,7 @@ import {
   marcarTodasLeidas,
   contadorNoLeidas,
 } from '../../api/notificaciones';
+import { onNotificacionTiempoReal } from '../../services/realtime';
 import LoadingView from '../ui/LoadingView';
 import ErrorCard from '../ui/ErrorCard';
 import EmptyState from '../ui/EmptyState';
@@ -27,6 +28,9 @@ export default function NotificacionesPanel({ noLeidas = 0, onCountChange }) {
   useEffect(() => {
     if (data) setItems(data);
   }, [data]);
+
+  // Un aviso STOMP hace recargar la bandeja, no solo el contador.
+  useEffect(() => onNotificacionTiempoReal(() => reload()), [reload]);
 
   const marcarTodas = async () => {
     try {

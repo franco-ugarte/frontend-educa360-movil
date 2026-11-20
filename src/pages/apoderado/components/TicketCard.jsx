@@ -104,7 +104,7 @@ export default function TicketCard({
             size={15}
             color={conSustento ? colors.primary : colors.faint}
           />
-          <Text style={styles.ticketAttachText}>
+          <Text style={styles.ticketAttachText} numberOfLines={1}>
             {conSustento ? 'Sustento adjunto' : 'Sin sustento adjunto'}
           </Text>
         </View>
@@ -118,7 +118,7 @@ export default function TicketCard({
               disabled={disabled}
             />
           ) : null}
-          {pendiente ? (
+          {pendiente && !conSustento ? (
             <>
               <MiniButton
                 icon="camera-outline"

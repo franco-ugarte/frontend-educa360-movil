@@ -14,6 +14,7 @@ import { bimestres as catalogoBimestres } from '../../api/catalogos';
 import { contadorNoLeidas } from '../../api/notificaciones';
 import { useAuth } from '../../state/AuthContext';
 import { alRecibirPush } from '../../services/push';
+import { onNotificacionTiempoReal } from '../../services/realtime';
 import useRecordatorios from '../../hooks/useRecordatorios';
 
 /**
@@ -216,17 +217,19 @@ export function ApoderadoDataProvider({ children }) {
     });
   }, []);
 
-  // El contador se refresca al volver a la app, cada minuto y al recibir push.
+  // El contador se refresca al volver a la app, por polling, push y STOMP.
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') refreshNotifCount();
     });
     const intervalo = setInterval(refreshNotifCount, 60000);
     const pushSub = alRecibirPush(() => refreshNotifCount());
+    const realtimeSub = onNotificacionTiempoReal(() => refreshNotifCount());
     return () => {
       subscription.remove();
       clearInterval(intervalo);
       pushSub.remove();
+      realtimeSub();
     };
   }, [refreshNotifCount]);
 

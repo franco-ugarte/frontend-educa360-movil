@@ -1,6 +1,12 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import { IosAuthorizationStatus } from 'expo-notifications';
+import {
+  asegurarCanalesNotificaciones,
+  notificarLocal,
+  permisoNotificaciones,
+} from './push';
 import { DIAS_SEMANA } from '../utils/horario';
 import { hora } from '../utils/format';
 
@@ -43,31 +49,17 @@ function minutoDeHora(valor) {
   return h * 60 + m;
 }
 
-async function asegurarCanal() {
-  if (Platform.OS !== 'android') return;
-  await Notifications.setNotificationChannelAsync(CANAL, {
-    name: 'Recordatorios de clase',
-    description: 'Avisos de clase y de asistencia generados por la app.',
-    importance: Notifications.AndroidImportance.DEFAULT,
-    vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#5F348F',
-  });
-}
-
 function permisoConcedido(estado) {
   return (
     !!estado?.granted ||
-    estado?.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
+    estado?.ios?.status === IosAuthorizationStatus.PROVISIONAL
   );
 }
 
 async function pedirPermiso() {
-  await asegurarCanal();
-  const actual = await Notifications.getPermissionsAsync();
-  if (permisoConcedido(actual)) return true;
-  if (actual?.canAskAgain === false) return false;
-  const pedido = await Notifications.requestPermissionsAsync();
-  return permisoConcedido(pedido);
+  await asegurarCanalesNotificaciones();
+  const { granted } = await permisoNotificaciones();
+  return granted;
 }
 
 /** Primera vez: pide permiso. Después respeta la elección guardada. */
@@ -245,7 +237,7 @@ async function _sincronizar({
     const permiso = await Notifications.getPermissionsAsync();
     if (!permisoConcedido(permiso)) return 0;
 
-    await asegurarCanal();
+    await asegurarCanalesNotificaciones();
     await cancelarRecordatorios();
 
     const bloques = (horario || []).filter(
@@ -288,24 +280,20 @@ async function _sincronizar({
   }
 }
 
-/** Notificación inmediata para comprobar permisos y diseño. */
+/** Prueba inmediata, independiente del WebSocket y del interruptor. */
 export async function enviarRecordatorioPrueba() {
-  if (!nativo()) return false;
+  if (!nativo()) return { ok: false, canAskAgain: false };
   try {
-    await asegurarCanal();
-    const permiso = await Notifications.getPermissionsAsync();
-    if (!permisoConcedido(permiso)) return false;
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Recordatorios activos',
-        body: 'Así se verán los avisos de Educa360 en tu teléfono.',
-        sound: 'default',
-        data: { origen: ORIGEN, tipo: 'RECORDATORIO', ruta: 'horario' },
-      },
-      trigger: null,
+    await asegurarCanalesNotificaciones();
+    const permiso = await permisoNotificaciones();
+    if (!permiso.granted) return { ok: false, canAskAgain: permiso.canAskAgain };
+    await notificarLocal({
+      title: 'Notificación local de prueba',
+      body: 'Así se verán los avisos de Educa360 en tu teléfono.',
+      data: { origen: 'educa360-prueba', tipo: 'PRUEBA', ruta: 'horario' },
     });
-    return true;
+    return { ok: true, canAskAgain: true };
   } catch {
-    return false;
+    return { ok: false, canAskAgain: false };
   }
 }

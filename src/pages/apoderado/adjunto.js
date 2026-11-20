@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
@@ -10,14 +10,33 @@ export const MAX_SUSTENTO_BYTES = 5 * 1024 * 1024;
 const EXTENSIONES_SUSTENTO = ['jpg', 'jpeg', 'png', 'pdf'];
 
 /**
+ * Si el permiso se puede pedir de nuevo, el mensaje vuelve al formulario.
+ * Si fue denegado permanentemente, se ofrece abrir Ajustes desde un Alert.
+ */
+function avisoPermiso(mensaje, canAskAgain) {
+  if (canAskAgain) {
+    throw new Error(mensaje);
+  }
+  Alert.alert(
+    'Permiso desactivado',
+    `${mensaje} Actívalo en Configuración para adjuntar el sustento.`,
+    [
+      { text: 'Ahora no', style: 'cancel' },
+      { text: 'Abrir Configuración', onPress: () => Linking.openSettings() },
+    ]
+  );
+}
+
+/**
  * Abre cámara o galería y devuelve el asset (o null si se cancela).
- * Lanza un Error con mensaje legible si falta permiso.
+ * Siempre pide el permiso antes de lanzar el selector nativo.
  */
 export async function elegirImagen(origen) {
   if (origen === 'camera') {
-    const permiso = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permiso.granted) {
-      throw new Error('Necesitamos permiso para usar la cámara.');
+    const { status, canAskAgain } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      avisoPermiso('Necesitamos permiso para usar la cámara.', canAskAgain);
+      return null;
     }
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
@@ -27,9 +46,10 @@ export async function elegirImagen(origen) {
     return result.canceled ? null : result.assets?.[0] || null;
   }
 
-  const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!permiso.granted) {
-    throw new Error('Necesitamos permiso para acceder a tus fotos.');
+  const { status, canAskAgain } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== 'granted') {
+    avisoPermiso('Necesitamos permiso para acceder a tus fotos.', canAskAgain);
+    return null;
   }
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],

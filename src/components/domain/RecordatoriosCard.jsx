@@ -23,8 +23,9 @@ import {
  * Interruptor de recordatorios locales en Perfil (los tres roles).
  *
  * Al encenderlo se pide permiso al sistema y se programan los avisos del
- * horario; al apagarlo se cancelan solo los de Educa360. El botón "Probar"
- * lanza una notificación inmediata para comprobar que se ven.
+ * horario; al apagarlo se cancelan solo los de Educa360. El botón "Probar
+ * notificación local" lanza un aviso inmediato aunque el interruptor esté
+ * apagado, para diagnosticar permisos, canal y sonido sin depender del push.
  */
 export default function RecordatoriosCard({
   rol,
@@ -77,13 +78,19 @@ export default function RecordatoriosCard({
   };
 
   const probar = async () => {
-    const ok = await enviarRecordatorioPrueba();
-    if (!ok) {
-      Alert.alert(
-        'Sin permiso',
-        'Activa las notificaciones de Educa360 en los ajustes del sistema para probar los recordatorios.'
-      );
-    }
+    const { ok, canAskAgain } = await enviarRecordatorioPrueba();
+    if (ok) return;
+    await refrescar();
+    Alert.alert(
+      'Notificaciones bloqueadas',
+      'Activa las notificaciones de Educa360 en los ajustes del sistema para probar los avisos.',
+      canAskAgain
+        ? [{ text: 'Entendido' }]
+        : [
+            { text: 'Ahora no', style: 'cancel' },
+            { text: 'Abrir ajustes', onPress: () => Linking.openSettings() },
+          ]
+    );
   };
 
   const detalle = !estado.disponible
@@ -116,14 +123,15 @@ export default function RecordatoriosCard({
         />
       </View>
 
-      {estado.activo ? (
+      {estado.disponible ? (
         <TouchableOpacity
           style={styles.testButton}
           activeOpacity={0.85}
           onPress={probar}
+          disabled={ocupado}
         >
           <Ionicons name="paper-plane-outline" size={14} color={colors.primary} />
-          <Text style={styles.testText}>Enviar notificación de prueba</Text>
+          <Text style={styles.testText}>Probar notificación local</Text>
         </TouchableOpacity>
       ) : null}
     </View>
